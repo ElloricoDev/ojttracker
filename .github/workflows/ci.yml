@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_mysql, sqlite, pdo_sqlite
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+          php artisan config:clear
+        env:
+          APP_ENV: testing
+
+      - name: Install NPM dependencies
+        run: npm install
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Run migrations (sqlite)
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+
+      - name: Run PHP tests
+        run: php artisan test
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Start server
+        run: php artisan serve --host=127.0.0.1 --port=8000 &
+        env:
+          APP_ENV: testing
+          APP_URL: http://127.0.0.1:8000
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+
+      - name: Wait for server
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://127.0.0.1:8000 > /dev/null; then
+              echo "Server is up."
+              break
+            fi
+            echo "Waiting for server..."
+            sleep 2
+          done
+
+      - name: Run Playwright tests
+        run: npm run ui:smoke
+        env:
+          APP_URL: http://127.0.0.1:8000

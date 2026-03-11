@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        font-family: 'Manrope', sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+
+    * {
+        scrollbar-width: none;
+    }
+
+    *::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+}
+
+@layer components {
+    .card {
+        @apply rounded-3xl border border-slate-200 bg-white/85 shadow-sm;
+    }
+
+    .card-body {
+        @apply p-6;
+    }
+
+    .card-sm {
+        @apply rounded-2xl border border-slate-200 bg-white/85 shadow-sm;
+    }
+
+    .card-sm-body {
+        @apply p-4;
+    }
+
+    .table-base {
+        @apply min-w-full text-sm;
+    }
+
+    .table-head {
+        @apply border-b border-slate-200 text-left text-slate-500;
+    }
+
+    .table-row {
+        @apply border-b border-slate-100;
+    }
+
+    .badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+    }
+}
