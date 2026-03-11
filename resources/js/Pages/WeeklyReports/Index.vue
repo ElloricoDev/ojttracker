@@ -6,6 +6,7 @@ import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SortableTh from '@/Components/SortableTh.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { formatDate, formatHours } from '@/utils/formatters';
@@ -195,17 +196,17 @@ const handleSort = ({ key, direction: nextDirection }) => {
                             <td class="px-2 py-2">{{ formatDate(report.week_start) }}</td>
                             <td class="px-2 py-2">{{ formatDate(report.week_end) }}</td>
                             <td class="px-2 py-2">{{ formatHours(report.hours_rendered) }}</td>
-                            <td class="px-2 py-2 capitalize">{{ report.status }}</td>
+                            <td class="px-2 py-2"><StatusBadge :status="report.status" /></td>
                             <td class="px-2 py-2">{{ report.accomplishments }}</td>
                             <td class="px-2 py-2">{{ report.reviewer?.name || '-' }}</td>
                             <td class="px-2 py-2">{{ report.reviewer_comment || '-' }}</td>
                             <td v-if="canReview" class="px-2 py-2">
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50" :disabled="report.status === 'reviewed'" @click="requestApprove(report)">
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button type="button" class="btn-action-emerald disabled:opacity-50" :disabled="report.status === 'reviewed'" @click="requestApprove(report)">
                                         <i class="fa-solid fa-circle-check text-xs"></i>
                                         Approve
                                     </button>
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50" :disabled="report.status === 'rejected'" @click="rejectReport(report)">
+                                    <button type="button" class="btn-action-rose disabled:opacity-50" :disabled="report.status === 'rejected'" @click="rejectReport(report)">
                                         <i class="fa-solid fa-ban text-xs"></i>
                                         Reject
                                     </button>
@@ -213,7 +214,15 @@ const handleSort = ({ key, direction: nextDirection }) => {
                             </td>
                         </tr>
                         <tr v-if="!props.weeklyReports.data || props.weeklyReports.data.length === 0">
-                            <td :colspan="canReview ? 8 : 7" class="px-2 py-4 text-center text-slate-500">No weekly reports found.</td>
+                            <td :colspan="canReview ? 8 : 7" class="py-12 text-center">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="fa-regular fa-calendar text-xl"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-slate-500">No weekly reports found</p>
+                                    <p class="text-xs text-slate-400">Select a placement or submit your first report</p>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </template>

@@ -122,12 +122,12 @@ const closeDelete = () => {
                             <td class="px-2 py-2">{{ formatHours(student.required_hours) }}</td>
                             <td class="px-2 py-2">{{ student.batch || '-' }}</td>
                             <td v-if="canManage" class="px-2 py-2">
-                                <div class="flex flex-wrap gap-2">
-                                    <Link :href="route('students.edit', student.id)" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                <div class="flex flex-wrap gap-1.5">
+                                    <Link :href="route('students.edit', student.id)" class="btn-action-slate">
                                         <i class="fa-regular fa-pen-to-square text-xs"></i>
                                         Edit
                                     </Link>
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100" @click="requestDelete(student.id)">
+                                    <button type="button" class="btn-action-rose" @click="requestDelete(student.id)">
                                         <i class="fa-regular fa-trash-can text-xs"></i>
                                         Delete
                                     </button>
@@ -135,7 +135,15 @@ const closeDelete = () => {
                             </td>
                         </tr>
                         <tr v-if="students.data.length === 0">
-                            <td :colspan="canManage ? 8 : 7" class="px-2 py-4 text-center text-slate-500">No students found.</td>
+                            <td :colspan="canManage ? 8 : 7" class="py-12 text-center">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="fa-solid fa-graduation-cap text-xl"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-slate-500">No students found</p>
+                                    <p class="text-xs text-slate-400">Try adjusting your search or add a new student</p>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </template>

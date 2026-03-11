@@ -17,13 +17,42 @@
     }
 
     * {
-        scrollbar-width: none;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
     }
 
     *::-webkit-scrollbar {
-        width: 0;
-        height: 0;
+        width: 4px;
+        height: 4px;
     }
+
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 9999px;
+    }
+}
+
+@keyframes spin-slow {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(16px); }
+}
+
+@keyframes progress-shrink {
+    from { width: 100%; }
+    to   { width: 0%; }
 }
 
 @layer components {
@@ -36,7 +65,7 @@
     }
 
     .card-sm {
-        @apply rounded-2xl border border-slate-200 bg-white/85 shadow-sm;
+        @apply rounded-2xl border border-slate-200 bg-white/85 shadow-sm transition-shadow duration-200 hover:shadow-md;
     }
 
     .card-sm-body {
@@ -48,14 +77,71 @@
     }
 
     .table-head {
-        @apply border-b border-slate-200 text-left text-slate-500;
+        @apply border-b border-slate-200 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400;
     }
 
     .table-row {
-        @apply border-b border-slate-100;
+        @apply border-b border-slate-100 transition-colors duration-100 hover:bg-slate-50/60;
     }
 
     .badge {
-        @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+        @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold;
+    }
+
+    .btn-action {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out;
+    }
+
+    .btn-action-emerald {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-action-rose {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-action-sky {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-action-teal {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-action-amber {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-action-slate {
+        @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition duration-150 ease-in-out border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .empty-state {
+        @apply flex flex-col items-center justify-center gap-3 py-12 text-center;
+    }
+
+    .empty-state-icon {
+        @apply flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400;
+    }
+
+    .spinner {
+        @apply inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent;
+        animation: spin-slow 0.7s linear infinite;
+    }
+
+    .toast-enter {
+        animation: toast-in 0.25s ease-out forwards;
+    }
+
+    .toast-leave {
+        animation: toast-out 0.2s ease-in forwards;
+    }
+
+    .form-field-error {
+        border-color: #fca5a5;
+    }
+    .form-field-error:focus {
+        border-color: #fb7185;
+        --tw-ring-color: #fb7185;
     }
 }

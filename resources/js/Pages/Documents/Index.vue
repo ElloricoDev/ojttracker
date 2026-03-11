@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ConfirmDialog from '@/Components/ConfirmDialog.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SortableTh from '@/Components/SortableTh.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { formatDateTime } from '@/utils/formatters';
@@ -184,7 +185,7 @@ const closeDelete = () => {
                     <tbody>
                         <tr v-for="document in props.documents.data" :key="document.id" class="table-row">
                             <td class="px-2 py-2">{{ document.document_type }}</td>
-                            <td class="px-2 py-2 capitalize">{{ document.status }}</td>
+                            <td class="px-2 py-2"><StatusBadge :status="document.status" /></td>
                             <td class="px-2 py-2">{{ formatDateTime(document.submitted_at) }}</td>
                             <td class="px-2 py-2">
                                 <a v-if="document.download_url" :href="document.download_url" class="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-600">
@@ -194,20 +195,20 @@ const closeDelete = () => {
                                 <span v-else class="text-slate-500">N/A</span>
                             </td>
                             <td class="px-2 py-2">
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'verified')">
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button type="button" class="btn-action-emerald disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'verified')">
                                         <i class="fa-solid fa-circle-check text-xs"></i>
                                         Verify
                                     </button>
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'pending')">
+                                    <button type="button" class="btn-action-amber disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'pending')">
                                         <i class="fa-solid fa-rotate text-xs"></i>
                                         Reset
                                     </button>
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'rejected')">
+                                    <button type="button" class="btn-action-rose disabled:opacity-50" :disabled="!canVerify" @click="requestStatusChange(document, 'rejected')">
                                         <i class="fa-solid fa-ban text-xs"></i>
                                         Reject
                                     </button>
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50" :disabled="!canVerify" @click="requestDelete(document)">
+                                    <button type="button" class="btn-action-rose disabled:opacity-50" :disabled="!canVerify" @click="requestDelete(document)">
                                         <i class="fa-regular fa-trash-can text-xs"></i>
                                         Delete
                                     </button>
@@ -215,7 +216,15 @@ const closeDelete = () => {
                             </td>
                         </tr>
                         <tr v-if="!props.documents.data || props.documents.data.length === 0">
-                            <td colspan="5" class="px-2 py-4 text-center text-slate-500">No documents found.</td>
+                            <td colspan="5" class="py-12 text-center">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="fa-regular fa-file-lines text-xl"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-slate-500">No documents found</p>
+                                    <p class="text-xs text-slate-400">Upload your first document to get started</p>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </template>

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ConfirmDialog from '@/Components/ConfirmDialog.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SortableTh from '@/Components/SortableTh.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { formatDate } from '@/utils/formatters';
@@ -134,14 +135,22 @@ const closeDelete = () => {
                     <tbody>
                         <tr v-for="evaluation in props.evaluations.data" :key="evaluation.id" class="table-row">
                             <td class="px-2 py-2">{{ evaluation.evaluator?.name }}</td>
-                            <td class="px-2 py-2 capitalize">{{ evaluation.evaluator_type }}</td>
-                            <td class="px-2 py-2 capitalize">{{ evaluation.evaluation_period }}</td>
+                            <td class="px-2 py-2">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold capitalize text-slate-600">
+                                    {{ evaluation.evaluator_type }}
+                                </span>
+                            </td>
+                            <td class="px-2 py-2">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold capitalize text-indigo-700">
+                                    {{ evaluation.evaluation_period }}
+                                </span>
+                            </td>
                             <td class="px-2 py-2">{{ evaluation.overall_score }}</td>
                             <td class="px-2 py-2">{{ formatDate(evaluation.evaluated_at) }}</td>
                             <td class="px-2 py-2">{{ evaluation.remarks }}</td>
                             <td class="px-2 py-2">
-                                <div class="flex gap-2">
-                                    <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100" @click="requestDelete(evaluation)">
+                                <div class="flex gap-1.5">
+                                    <button type="button" class="btn-action-rose" @click="requestDelete(evaluation)">
                                         <i class="fa-regular fa-trash-can text-xs"></i>
                                         Delete
                                     </button>
@@ -149,7 +158,15 @@ const closeDelete = () => {
                             </td>
                         </tr>
                         <tr v-if="!props.evaluations.data || props.evaluations.data.length === 0">
-                            <td colspan="7" class="px-2 py-4 text-center text-slate-500">No evaluations found.</td>
+                            <td colspan="7" class="py-12 text-center">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="fa-regular fa-star text-xl"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-slate-500">No evaluations found</p>
+                                    <p class="text-xs text-slate-400">Select a placement or create an evaluation</p>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </template>

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ConfirmDialog from '@/Components/ConfirmDialog.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SortableTh from '@/Components/SortableTh.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { formatHours } from '@/utils/formatters';
@@ -202,31 +203,31 @@ const closeStatusConfirm = () => {
                                 <td class="px-2 py-2">{{ placement.student?.user?.name }}</td>
                                 <td class="px-2 py-2">{{ placement.company?.name }}</td>
                                 <td class="px-2 py-2">{{ placement.batch?.name }}</td>
-                                <td class="px-2 py-2 capitalize">{{ placement.status }}</td>
+                                <td class="px-2 py-2"><StatusBadge :status="placement.status" /></td>
                                 <td class="px-2 py-2">{{ formatHours(placement.required_hours) }}</td>
                                 <td v-if="canManage" class="px-2 py-2">
-                                    <div class="flex flex-wrap gap-2">
-                                        <Link :href="route('placements.edit', placement.id)" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <Link :href="route('placements.edit', placement.id)" class="btn-action-slate">
                                             <i class="fa-regular fa-pen-to-square text-xs"></i>
                                             Edit
                                         </Link>
-                                        <button v-if="canApprove(placement.status)" type="button" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100" @click="requestStatusChange(placement, 'approve')">
+                                        <button v-if="canApprove(placement.status)" type="button" class="btn-action-emerald" @click="requestStatusChange(placement, 'approve')">
                                             <i class="fa-solid fa-circle-check text-xs"></i>
                                             Approve
                                         </button>
-                                        <button v-if="canActivate(placement.status)" type="button" class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100" @click="changeStatus(placement, 'activate')">
+                                        <button v-if="canActivate(placement.status)" type="button" class="btn-action-sky" @click="changeStatus(placement, 'activate')">
                                             <i class="fa-solid fa-play text-xs"></i>
                                             Activate
                                         </button>
-                                        <button v-if="canComplete(placement.status)" type="button" class="inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-100" @click="requestStatusChange(placement, 'complete')">
+                                        <button v-if="canComplete(placement.status)" type="button" class="btn-action-teal" @click="requestStatusChange(placement, 'complete')">
                                             <i class="fa-solid fa-flag-checkered text-xs"></i>
                                             Complete
                                         </button>
-                                        <button v-if="canCancel(placement.status)" type="button" class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100" @click="requestStatusChange(placement, 'cancel')">
+                                        <button v-if="canCancel(placement.status)" type="button" class="btn-action-amber" @click="requestStatusChange(placement, 'cancel')">
                                             <i class="fa-solid fa-ban text-xs"></i>
                                             Cancel
                                         </button>
-                                        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100" @click="requestDelete(placement.id)">
+                                        <button type="button" class="btn-action-rose" @click="requestDelete(placement.id)">
                                             <i class="fa-regular fa-trash-can text-xs"></i>
                                             Delete
                                         </button>
@@ -234,7 +235,15 @@ const closeStatusConfirm = () => {
                                 </td>
                             </tr>
                             <tr v-if="placements.data.length === 0">
-                                <td :colspan="canManage ? 6 : 5" class="px-2 py-4 text-center text-slate-500">No placements found.</td>
+                                <td :colspan="canManage ? 6 : 5" class="py-12 text-center">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">
+                                            <i class="fa-solid fa-briefcase text-xl"></i>
+                                        </div>
+                                        <p class="text-sm font-medium text-slate-500">No placements found</p>
+                                        <p class="text-xs text-slate-400">Try adjusting your search or filters</p>
+                                    </div>
+                                </td>
                             </tr>
                         </tbody>
                 </template>

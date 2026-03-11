@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SortableTh from '@/Components/SortableTh.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { formatDate, formatMinutes, formatTime } from '@/utils/formatters';
@@ -138,15 +139,15 @@ const handleSort = ({ key, direction: nextDirection }) => {
                                 <td class="px-2 py-2">{{ formatTime(log.time_in) }}</td>
                                 <td class="px-2 py-2">{{ formatTime(log.time_out) }}</td>
                                 <td class="px-2 py-2">{{ formatMinutes(log.total_minutes) }}</td>
-                                <td class="px-2 py-2 capitalize">{{ log.status }}</td>
+                                <td class="px-2 py-2"><StatusBadge :status="log.status" /></td>
                                 <td class="px-2 py-2">{{ log.approver?.name || '-' }}</td>
                                 <td v-if="props.canApprove" class="px-2 py-2">
-                                    <div class="flex flex-wrap gap-2">
-                                        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50" :disabled="log.status === 'approved'" @click="approveLog(log)">
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <button type="button" class="btn-action-emerald disabled:opacity-50" :disabled="log.status === 'approved'" @click="approveLog(log)">
                                             <i class="fa-solid fa-circle-check text-xs"></i>
                                             Approve
                                         </button>
-                                        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50" :disabled="log.status === 'rejected'" @click="rejectLog(log)">
+                                        <button type="button" class="btn-action-rose disabled:opacity-50" :disabled="log.status === 'rejected'" @click="rejectLog(log)">
                                             <i class="fa-solid fa-ban text-xs"></i>
                                             Reject
                                         </button>
@@ -154,7 +155,15 @@ const handleSort = ({ key, direction: nextDirection }) => {
                                 </td>
                             </tr>
                             <tr v-if="props.attendanceLogs.data.length === 0">
-                                <td :colspan="props.canApprove ? 8 : 7" class="px-2 py-4 text-center text-slate-500">No attendance logs yet.</td>
+                                <td :colspan="props.canApprove ? 8 : 7" class="py-12 text-center">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">
+                                            <i class="fa-regular fa-calendar-check text-xl"></i>
+                                        </div>
+                                        <p class="text-sm font-medium text-slate-500">No attendance logs yet</p>
+                                        <p class="text-xs text-slate-400">Time in to create your first log</p>
+                                    </div>
+                                </td>
                             </tr>
                         </tbody>
                 </template>

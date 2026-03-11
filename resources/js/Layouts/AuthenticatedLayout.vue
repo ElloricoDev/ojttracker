@@ -629,23 +629,36 @@ onUnmounted(() => {
                     </div>
 
                     <div class="fixed left-0 right-0 top-0 z-20 hidden h-20 items-center justify-between border-b border-slate-200/70 bg-white/70 px-8 backdrop-blur lg:flex lg:left-72">
-                        <div>
-                            <div class="text-sm text-slate-500">Signed in as</div>
-                            <div class="text-lg font-semibold text-slate-900">{{ $page.props.auth.user.name }}</div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white" style="font-family: 'Space Grotesk', sans-serif;">
+                                {{ $page.props.auth.user.name?.charAt(0)?.toUpperCase() ?? '?' }}
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-slate-900">{{ $page.props.auth.user.name }}</div>
+                                <div class="mt-0.5 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                                    <i class="fa-solid fa-circle-user text-[9px]"></i>
+                                    {{ $page.props.auth.user.role ?? 'user' }}
+                                </div>
+                            </div>
                         </div>
                         <Dropdown align="right" width="48" contentClasses="py-2 bg-white/95">
                             <template #trigger>
                                 <span class="inline-flex rounded-xl">
-                                    <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700">
-                                        <i class="fa-solid fa-user-gear text-sm"></i>
-                                        Profile & Settings
+                                    <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white">
+                                        <i class="fa-solid fa-user-gear text-sm text-slate-500"></i>
+                                        Account
+                                        <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
                                     </button>
                                 </span>
                             </template>
 
                             <template #content>
-                                <DropdownLink :href="route('profile.edit')">Profile</DropdownLink>
-                                <DropdownLink :href="route('logout')" method="post" as="button">Log Out</DropdownLink>
+                                <DropdownLink :href="route('profile.edit')">
+                                    <i class="fa-regular fa-user mr-2 text-slate-400"></i>Profile
+                                </DropdownLink>
+                                <DropdownLink :href="route('logout')" method="post" as="button">
+                                    <i class="fa-solid fa-arrow-right-from-bracket mr-2 text-slate-400"></i>Log Out
+                                </DropdownLink>
                             </template>
                         </Dropdown>
                     </div>
@@ -662,28 +675,76 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div class="fixed right-6 top-6 z-50 flex w-[320px] flex-col gap-3">
+            <div class="fixed bottom-6 right-6 z-50 flex w-[340px] flex-col gap-2">
+                <transition-group
+                    enter-active-class="transition duration-300 ease-out"
+                    enter-from-class="opacity-0 translate-x-4"
+                    enter-to-class="opacity-100 translate-x-0"
+                    leave-active-class="transition duration-200 ease-in"
+                    leave-from-class="opacity-100 translate-x-0"
+                    leave-to-class="opacity-0 translate-x-4"
+                    tag="div"
+                    class="flex flex-col gap-2"
+                >
                 <div
                     v-for="toast in toasts"
                     :key="toast.id"
-                    class="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm shadow-lg backdrop-blur"
+                    class="overflow-hidden rounded-2xl border bg-white shadow-lg"
+                    :class="{
+                        'border-emerald-200': toast.type === 'success',
+                        'border-rose-200': toast.type === 'error',
+                        'border-slate-200': toast.type === 'info',
+                    }"
                 >
-                    <div
-                        class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
-                    >
-                        {{ toast.type }}
+                    <div class="flex items-start gap-3 px-4 py-3">
+                        <span
+                            class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs"
+                            :class="{
+                                'bg-emerald-100 text-emerald-600': toast.type === 'success',
+                                'bg-rose-100 text-rose-600': toast.type === 'error',
+                                'bg-sky-100 text-sky-600': toast.type === 'info',
+                            }"
+                        >
+                            <i
+                                :class="{
+                                    'fa-solid fa-circle-check': toast.type === 'success',
+                                    'fa-solid fa-circle-xmark': toast.type === 'error',
+                                    'fa-solid fa-circle-info': toast.type === 'info',
+                                }"
+                            ></i>
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div
+                                class="text-xs font-bold uppercase tracking-widest"
+                                :class="{
+                                    'text-emerald-700': toast.type === 'success',
+                                    'text-rose-700': toast.type === 'error',
+                                    'text-sky-700': toast.type === 'info',
+                                }"
+                            >{{ toast.type }}</div>
+                            <div class="mt-0.5 text-sm text-slate-700">{{ toast.message }}</div>
+                        </div>
                     </div>
                     <div
+                        class="h-1"
                         :class="{
-                            'text-emerald-700': toast.type === 'success',
-                            'text-rose-700': toast.type === 'error',
-                            'text-slate-700': toast.type === 'info',
+                            'bg-emerald-100': toast.type === 'success',
+                            'bg-rose-100': toast.type === 'error',
+                            'bg-sky-100': toast.type === 'info',
                         }"
-                        class="mt-1 font-medium"
                     >
-                        {{ toast.message }}
+                        <div
+                            class="h-full"
+                            :class="{
+                                'bg-emerald-400': toast.type === 'success',
+                                'bg-rose-400': toast.type === 'error',
+                                'bg-sky-400': toast.type === 'info',
+                            }"
+                            style="animation: progress-shrink 3.5s linear forwards;"
+                        ></div>
                     </div>
                 </div>
+                </transition-group>
             </div>
 
             <div v-if="showingNavigationDropdown" class="fixed inset-0 z-40 lg:hidden">

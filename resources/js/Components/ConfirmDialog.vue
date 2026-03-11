@@ -17,13 +17,29 @@ const emit = defineEmits(['confirm', 'close']);
 
 const confirm = () => emit('confirm');
 const close = () => emit('close');
+
+const toneIcon = {
+    danger:  { icon: 'fa-solid fa-triangle-exclamation', bg: 'bg-rose-100',   text: 'text-rose-600' },
+    warning: { icon: 'fa-solid fa-circle-info',          bg: 'bg-amber-100',  text: 'text-amber-600' },
+    success: { icon: 'fa-solid fa-circle-check',         bg: 'bg-emerald-100',text: 'text-emerald-600' },
+};
 </script>
 
 <template>
-    <Modal :show="show" @close="close">
+    <Modal :show="show" max-width="md" @close="close">
         <div class="p-6">
-            <h2 class="text-lg font-medium text-slate-900">{{ title }}</h2>
-            <p class="mt-2 text-sm text-slate-600">{{ message }}</p>
+            <div class="flex items-start gap-4">
+                <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm"
+                    :class="[toneIcon[tone]?.bg ?? 'bg-slate-100', toneIcon[tone]?.text ?? 'text-slate-600']"
+                >
+                    <i :class="toneIcon[tone]?.icon ?? 'fa-solid fa-circle-question'"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-base font-semibold text-slate-900">{{ title }}</h2>
+                    <p class="mt-1.5 text-sm text-slate-600">{{ message }}</p>
+                </div>
+            </div>
             <div class="mt-6 flex justify-end gap-3">
                 <SecondaryButton @click="close">{{ cancelLabel }}</SecondaryButton>
                 <DangerButton v-if="tone === 'danger'" @click="confirm">{{ confirmLabel }}</DangerButton>

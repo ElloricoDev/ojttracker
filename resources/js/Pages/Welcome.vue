@@ -143,19 +143,28 @@ defineProps({
                 </section>
 
                 <section class="mt-16 grid gap-6 md:grid-cols-3">
-                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm">
+                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm transition-shadow hover:shadow-md">
+                        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                            <i class="fa-solid fa-briefcase text-lg"></i>
+                        </div>
                         <h3 class="text-lg font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">Placement workflow</h3>
                         <p class="mt-2 text-sm text-slate-600" style="font-family: 'Manrope', sans-serif;">
                             From request to approval, every step is tracked with audit-ready status changes.
                         </p>
                     </div>
-                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm">
+                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm transition-shadow hover:shadow-md">
+                        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
+                            <i class="fa-regular fa-calendar-check text-lg"></i>
+                        </div>
                         <h3 class="text-lg font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">Attendance with approvals</h3>
                         <p class="mt-2 text-sm text-slate-600" style="font-family: 'Manrope', sans-serif;">
                             Time in/out is computed, verified, and tied to required hours automatically.
                         </p>
                     </div>
-                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm">
+                    <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm transition-shadow hover:shadow-md">
+                        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                            <i class="fa-regular fa-star text-lg"></i>
+                        </div>
                         <h3 class="text-lg font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">Evaluation insights</h3>
                         <p class="mt-2 text-sm text-slate-600" style="font-family: 'Manrope', sans-serif;">
                             Midterm and final assessments are stored with criteria and score history.

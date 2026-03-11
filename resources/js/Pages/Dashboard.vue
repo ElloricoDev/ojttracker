@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { formatDate, formatHours } from '@/utils/formatters';
 
@@ -40,40 +41,40 @@ defineProps({
 
         <div class="space-y-6">
             <div v-if="role !== 'student'" class="grid gap-4 md:grid-cols-5">
-                <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                <div class="card-sm card-sm-body border-l-4 border-l-slate-300">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-solid fa-briefcase text-xs text-slate-400"></i>
                         Total Placements
                     </p>
-                    <p class="text-2xl font-bold text-slate-900">{{ metrics.totalPlacements }}</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-900">{{ metrics.totalPlacements }}</p>
                 </div>
-                <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                <div class="card-sm card-sm-body border-l-4 border-l-emerald-400">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-solid fa-circle-check text-xs text-emerald-500"></i>
-                        Active Placements
+                        Active
                     </p>
-                    <p class="text-2xl font-bold text-emerald-700">{{ metrics.activePlacements }}</p>
+                    <p class="mt-2 text-3xl font-bold text-emerald-700">{{ metrics.activePlacements }}</p>
                 </div>
-                <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                <div class="card-sm card-sm-body border-l-4 border-l-amber-400">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-solid fa-clock text-xs text-amber-500"></i>
-                        Pending Placements
+                        Pending
                     </p>
-                    <p class="text-2xl font-bold text-amber-700">{{ metrics.pendingPlacements }}</p>
+                    <p class="mt-2 text-3xl font-bold text-amber-700">{{ metrics.pendingPlacements }}</p>
                 </div>
-                <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                <div class="card-sm card-sm-body border-l-4 border-l-rose-400">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-regular fa-file-lines text-xs text-rose-500"></i>
                         Pending Reports
                     </p>
-                    <p class="text-2xl font-bold text-rose-700">{{ metrics.pendingReports }}</p>
+                    <p class="mt-2 text-3xl font-bold text-rose-700">{{ metrics.pendingReports }}</p>
                 </div>
-                <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                <div class="card-sm card-sm-body border-l-4 border-l-sky-400">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-solid fa-hourglass-half text-xs text-sky-500"></i>
                         Hours Rendered
                     </p>
-                    <p class="text-2xl font-bold text-sky-700">{{ formatHours(metrics.hoursRendered) }}</p>
+                    <p class="mt-2 text-3xl font-bold text-sky-700">{{ formatHours(metrics.hoursRendered) }}</p>
                 </div>
             </div>
 
@@ -137,32 +138,32 @@ defineProps({
 
             <div v-if="role !== 'student'" class="grid gap-4 md:grid-cols-4">
                 <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-regular fa-calendar-check text-xs text-slate-400"></i>
                         Pending Attendance
                     </p>
-                    <p class="text-2xl font-bold text-slate-900">{{ roleInsights.pendingAttendance }}</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-900">{{ roleInsights.pendingAttendance }}</p>
                 </div>
                 <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-regular fa-file-lines text-xs text-rose-500"></i>
                         Pending Reports
                     </p>
-                    <p class="text-2xl font-bold text-rose-700">{{ roleInsights.pendingReports }}</p>
+                    <p class="mt-2 text-3xl font-bold text-rose-700">{{ roleInsights.pendingReports }}</p>
                 </div>
                 <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-solid fa-paperclip text-xs text-amber-500"></i>
                         Pending Documents
                     </p>
-                    <p class="text-2xl font-bold text-amber-700">{{ roleInsights.pendingDocuments }}</p>
+                    <p class="mt-2 text-3xl font-bold text-amber-700">{{ roleInsights.pendingDocuments }}</p>
                 </div>
                 <div class="card-sm card-sm-body">
-                    <p class="flex items-center gap-2 text-sm text-slate-500">
+                    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <i class="fa-regular fa-star text-xs text-emerald-500"></i>
                         Pending Evaluations
                     </p>
-                    <p class="text-2xl font-bold text-emerald-700">{{ roleInsights.pendingEvaluations }}</p>
+                    <p class="mt-2 text-3xl font-bold text-emerald-700">{{ roleInsights.pendingEvaluations }}</p>
                 </div>
             </div>
 
@@ -191,7 +192,7 @@ defineProps({
                             <tr v-for="placement in recentPlacements" :key="placement.id" class="table-row">
                                 <td class="px-2 py-2">{{ placement.student }}</td>
                                 <td class="px-2 py-2">{{ placement.company }}</td>
-                                <td class="px-2 py-2 capitalize">{{ placement.status }}</td>
+                                <td class="px-2 py-2"><StatusBadge :status="placement.status" /></td>
                                 <td class="px-2 py-2">{{ formatDate(placement.start_date) }}</td>
                             </tr>
                             <tr v-if="recentPlacements.length === 0">
