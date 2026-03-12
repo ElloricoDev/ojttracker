@@ -136,7 +136,7 @@ const closeDelete = () => {
 </script>
 
 <template>
-    <Head title="Documents" />
+    <Head title="📄 Documents" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -74,7 +74,7 @@ const closeDelete = () => {
 </script>
 
 <template>
-    <Head title="OJT Batches" />
+    <Head title="🗂️ OJT Batches" />
 
     <AuthenticatedLayout>
         <template #header>

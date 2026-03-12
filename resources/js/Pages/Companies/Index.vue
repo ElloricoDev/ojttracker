@@ -73,7 +73,7 @@ const closeDelete = () => {
 </script>
 
 <template>
-    <Head title="Companies" />
+    <Head title="🏢 Companies" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -142,7 +142,7 @@ const handleSort = ({ key, direction: nextDirection }) => {
 </script>
 
 <template>
-    <Head title="Weekly Reports" />
+    <Head title="📋 Weekly Reports" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -63,7 +63,7 @@ const closeBack = () => {
 </script>
 
 <template>
-    <Head title="Upload Document" />
+    <Head title="📄 Upload Document" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -128,7 +128,7 @@ const closeBack = () => {
 </script>
 
 <template>
-    <Head title="Create Evaluation" />
+    <Head title="⭐ Create Evaluation" />
 
     <AuthenticatedLayout>
         <template #header>

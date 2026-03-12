@@ -30,7 +30,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create Student" />
+    <Head title="🎓 Create Student" />
 
     <AuthenticatedLayout>
         <template #header>

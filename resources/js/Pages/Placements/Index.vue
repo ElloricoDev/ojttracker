@@ -143,7 +143,7 @@ const closeStatusConfirm = () => {
 </script>
 
 <template>
-    <Head title="Placements" />
+    <Head title="💼 Placements" />
 
     <AuthenticatedLayout>
         <template #header>

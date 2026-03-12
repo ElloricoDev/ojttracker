@@ -63,7 +63,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create Weekly Report" />
+    <Head title="📋 Create Weekly Report" />
 
     <AuthenticatedLayout>
         <template #header>

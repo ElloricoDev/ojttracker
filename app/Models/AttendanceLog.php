@@ -26,8 +26,8 @@ class AttendanceLog extends Model
     {
         return [
             'work_date' => 'date',
-            'time_in' => 'datetime:H:i:s',
-            'time_out' => 'datetime:H:i:s',
+            'time_in' => 'datetime',
+            'time_out' => 'datetime',
             'total_minutes' => 'integer',
         ];
     }

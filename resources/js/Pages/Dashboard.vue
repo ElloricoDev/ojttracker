@@ -29,7 +29,7 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="🏠 Dashboard" />
 
     <AuthenticatedLayout>
         <template #header>

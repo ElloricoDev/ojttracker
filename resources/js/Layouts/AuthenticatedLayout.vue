@@ -1,12 +1,19 @@
 ﻿<script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import ConfirmDialog from '@/Components/ConfirmDialog.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 
 const showingNavigationDropdown = ref(false);
+const showLogoutConfirm = ref(false);
+
+const confirmLogout = () => {
+    showLogoutConfirm.value = false;
+    router.post(route('logout'));
+};
 const placementsOpen = ref(false);
 const dailyReportsOpen = ref(false);
 const evaluationsOpen = ref(false);
@@ -317,6 +324,12 @@ onUnmounted(() => {
                                 </span>
                                 <span>Attendance</span>
                             </ResponsiveNavLink>
+                            <ResponsiveNavLink v-show="matchesLabel('DTR Generator')" :href="route('dtr.index')" :active="route().current('dtr.*')">
+                                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                                    <i class="fa-regular fa-file-lines text-base"></i>
+                                </span>
+                                <span>DTR Generator</span>
+                            </ResponsiveNavLink>
                             <div v-show="groupVisible(['Reports', 'Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report'])" class="space-y-2">
                                 <button
                                     type="button"
@@ -623,7 +636,7 @@ onUnmounted(() => {
 
                             <template #content>
                                 <DropdownLink :href="route('profile.edit')">Profile</DropdownLink>
-                                <DropdownLink :href="route('logout')" method="post" as="button">Log Out</DropdownLink>
+                                <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none">Log Out</button>
                             </template>
                         </Dropdown>
                     </div>
@@ -656,9 +669,9 @@ onUnmounted(() => {
                                 <DropdownLink :href="route('profile.edit')">
                                     <i class="fa-regular fa-user mr-2 text-slate-400"></i>Profile
                                 </DropdownLink>
-                                <DropdownLink :href="route('logout')" method="post" as="button">
+                                <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none">
                                     <i class="fa-solid fa-arrow-right-from-bracket mr-2 text-slate-400"></i>Log Out
-                                </DropdownLink>
+                                </button>
                             </template>
                         </Dropdown>
                     </div>
@@ -1112,4 +1125,15 @@ onUnmounted(() => {
         </div>
     </div>
     </div>
+
+    <ConfirmDialog
+        :show="showLogoutConfirm"
+        title="Log out?"
+        message="Are you sure you want to log out of your account?"
+        confirm-label="Log Out"
+        cancel-label="Stay"
+        tone="warning"
+        @confirm="confirmLogout"
+        @close="showLogoutConfirm = false"
+    />
 </template>

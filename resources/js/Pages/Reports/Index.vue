@@ -52,7 +52,7 @@ const handleCoursePerPage = (value) => {
 </script>
 
 <template>
-    <Head title="Reports" />
+    <Head title="📊 Reports" />
 
     <AuthenticatedLayout>
         <template #header>

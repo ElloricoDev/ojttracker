@@ -36,17 +36,25 @@ export const formatTime = (value) => {
         return '-';
     }
 
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleTimeString(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        });
+    }
+
+    // fallback: bare HH:MM:SS string (no timezone info)
     const parts = String(value).split(':');
     if (parts.length < 2) {
         return value;
     }
-
     const hours = Number(parts[0]);
     const minutes = Number(parts[1]);
     if (Number.isNaN(hours) || Number.isNaN(minutes)) {
         return value;
     }
-
     const meridiem = hours >= 12 ? 'PM' : 'AM';
     const hour12 = ((hours + 11) % 12) + 1;
     return `${hour12}:${String(minutes).padStart(2, '0')} ${meridiem}`;
@@ -72,6 +80,21 @@ export const formatMinutes = (value) => {
         return value;
     }
     return `${minutes} mins`;
+};
+
+export const formatDuration = (totalMinutes) => {
+    if (totalMinutes === null || totalMinutes === undefined || totalMinutes === '') {
+        return '-';
+    }
+    const mins = Number(totalMinutes);
+    if (Number.isNaN(mins) || mins < 0) {
+        return '-';
+    }
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
 };
 
 export const formatDateTime = (value) => {

@@ -28,7 +28,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Edit Student" />
+    <Head title="🎓 Edit Student" />
 
     <AuthenticatedLayout>
         <template #header>

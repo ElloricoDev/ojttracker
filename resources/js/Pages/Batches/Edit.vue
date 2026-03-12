@@ -23,7 +23,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Edit Batch" />
+    <Head title="🗂️ Edit Batch" />
 
     <AuthenticatedLayout>
         <template #header>

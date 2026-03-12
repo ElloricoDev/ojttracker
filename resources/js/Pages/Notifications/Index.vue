@@ -55,7 +55,7 @@ const markAllRead = () => {
 </script>
 
 <template>
-    <Head title="Notifications" />
+    <Head title="🔔 Notifications" />
 
     <AuthenticatedLayout>
         <template #header>

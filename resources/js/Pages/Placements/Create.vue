@@ -76,7 +76,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create Placement" />
+    <Head title="💼 Create Placement" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -70,7 +70,7 @@ const closeDelete = () => {
 </script>
 
 <template>
-    <Head title="Users" />
+    <Head title="👥 Users" />
 
     <AuthenticatedLayout>
         <template #header>

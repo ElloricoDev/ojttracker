@@ -29,7 +29,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create User" />
+    <Head title="👥 Create User" />
 
     <AuthenticatedLayout>
         <template #header>

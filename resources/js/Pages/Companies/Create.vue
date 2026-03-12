@@ -22,7 +22,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create Company" />
+    <Head title="🏢 Create Company" />
 
     <AuthenticatedLayout>
         <template #header>

@@ -84,7 +84,7 @@ const closeDelete = () => {
 </script>
 
 <template>
-    <Head title="Evaluations" />
+    <Head title="⭐ Evaluations" />
 
     <AuthenticatedLayout>
         <template #header>

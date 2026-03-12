@@ -24,7 +24,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Create Supervisor" />
+    <Head title="👤 Create Supervisor" />
 
     <AuthenticatedLayout>
         <template #header>

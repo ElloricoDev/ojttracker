@@ -5,6 +5,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DailyReportController;
 use App\Http\Controllers\WeeklyReportController;
+use App\Http\Controllers\DtrController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EvaluationController;
@@ -42,6 +43,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut'])->name('attendance.time-out');
     Route::patch('/attendance/{attendanceLog}/approve', [AttendanceController::class, 'approve'])->name('attendance.approve');
     Route::patch('/attendance/{attendanceLog}/reject', [AttendanceController::class, 'reject'])->name('attendance.reject');
+
+    Route::get('/dtr', [DtrController::class, 'index'])->name('dtr.index');
+    Route::get('/dtr/data', [DtrController::class, 'generate'])->name('dtr.generate');
 
     Route::get('/daily-reports', [DailyReportController::class, 'index'])->name('daily-reports.index');
     Route::get('/daily-reports/create', [DailyReportController::class, 'create'])->name('daily-reports.create');
