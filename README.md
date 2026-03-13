@@ -3,6 +3,14 @@
 ## Overview
 This system manages OJT placements, attendance, daily and weekly reports, evaluations, documents, notifications, and completion analytics. It is role-based and supports Admin, Coordinator, Faculty Adviser, Company Supervisor, and Student users.
 
+## Developer Checkpoint (Web + Mobile)
+1. Set `mobile/.env` with your machine LAN IP so phone devices can reach Laravel:
+   - `EXPO_PUBLIC_API_BASE_URL=http://<YOUR_LAN_IP>:8001/api`
+2. From the project root, start the full stack in one command:
+   - `npm run checkpoint:start`
+3. Open web Inertia app at `http://127.0.0.1:8001` (do not open `http://0.0.0.0:8001` in a browser).
+4. Open Expo Go and scan the QR from the terminal.
+
 ## Core Modules
 1. Dashboard
 2. Users (Admin, Coordinator, Adviser accounts)

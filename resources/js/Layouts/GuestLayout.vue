@@ -39,6 +39,12 @@ onMounted(() => {
             <div
                 class="pointer-events-none absolute inset-0 opacity-[0.15] [background-image:linear-gradient(120deg,rgba(15,23,42,0.18)_1px,transparent_1px),linear-gradient(30deg,rgba(15,23,42,0.12)_1px,transparent_1px)] [background-size:56px_56px] dark:hidden"
             ></div>
+            <div
+                class="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[radial-gradient(900px_circle_at_12%_10%,#34D39926_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FACC1533_0%,transparent_40%),linear-gradient(180deg,#020617_0%,#0F172A_100%)]"
+            ></div>
+            <div
+                class="pointer-events-none absolute inset-0 hidden opacity-[0.12] [background-image:linear-gradient(120deg,rgba(148,163,184,0.16)_1px,transparent_1px),linear-gradient(30deg,rgba(148,163,184,0.10)_1px,transparent_1px)] [background-size:56px_56px] dark:block"
+            ></div>
 
             <div class="relative mx-auto flex min-h-screen w-full max-w-4xl items-center px-6 py-12 lg:px-10">
                 <div class="w-full rounded-3xl border border-slate-200 bg-white/85 p-8 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">

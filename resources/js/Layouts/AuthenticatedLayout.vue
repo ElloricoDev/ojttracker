@@ -463,6 +463,12 @@ onUnmounted(() => {
             <div
                 class="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(90deg,rgba(15,23,42,0.12)_1px,transparent_1px),linear-gradient(0deg,rgba(15,23,42,0.08)_1px,transparent_1px)] [background-size:48px_48px] dark:hidden"
             ></div>
+            <div
+                class="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[radial-gradient(1000px_circle_at_12%_10%,#34D39926_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FACC1533_0%,transparent_40%),linear-gradient(180deg,#020617_0%,#0F172A_100%)]"
+            ></div>
+            <div
+                class="pointer-events-none absolute inset-0 hidden opacity-[0.14] [background-image:linear-gradient(90deg,rgba(148,163,184,0.16)_1px,transparent_1px),linear-gradient(0deg,rgba(148,163,184,0.10)_1px,transparent_1px)] [background-size:48px_48px] dark:block"
+            ></div>
 
             <div class="relative flex h-screen">
                 <aside class="hidden w-72 flex-col border-r border-slate-200/70 bg-white/70 shadow-sm backdrop-blur dark:border-slate-700/50 dark:bg-slate-900/90 lg:fixed lg:inset-y-0 lg:flex">

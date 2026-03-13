@@ -1,0 +1,66 @@
+name: Mobile Android Preview Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: Optional staging API base URL override for this run
+        required: false
+        type: string
+
+jobs:
+  preview-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      EXPO_PUBLIC_APP_ENV: staging
+      EXPO_PUBLIC_RELEASE_CHANNEL: preview
+      EXPO_PUBLIC_API_BASE_URL: ${{ secrets.MOBILE_STAGING_API_BASE_URL }}
+      ANDROID_APPLICATION_ID: ${{ secrets.MOBILE_ANDROID_APPLICATION_ID }}
+      ANDROID_VERSION_CODE: ${{ secrets.MOBILE_ANDROID_VERSION_CODE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          if [[ -z "${EXPO_TOKEN}" ]]; then
+            echo "Missing required secret: EXPO_TOKEN"
+            exit 1
+          fi
+          if [[ -z "${EAS_PROJECT_ID}" ]]; then
+            echo "Missing required secret: EAS_PROJECT_ID"
+            exit 1
+          fi
+          if [[ -z "${EXPO_PUBLIC_API_BASE_URL}" ]]; then
+            echo "Missing required secret: MOBILE_STAGING_API_BASE_URL"
+            exit 1
+          fi
+
+      - name: Apply API base URL override input
+        if: ${{ github.event.inputs.api_base_url != '' }}
+        shell: bash
+        run: echo "EXPO_PUBLIC_API_BASE_URL=${{ github.event.inputs.api_base_url }}" >> "$GITHUB_ENV"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install mobile dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          token: ${{ secrets.EXPO_TOKEN }}
+          eas-version: latest
+
+      - name: Run Android preview build
+        run: eas build --platform android --profile preview --non-interactive

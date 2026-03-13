@@ -5,6 +5,10 @@
     "scripts": {
         "build": "vite build && vite build --ssr",
         "dev": "vite",
+        "serve:web": "php artisan serve --host=0.0.0.0 --port=8001",
+        "serve:mobile": "npm --prefix mobile run start:lan",
+        "checkpoint:info": "node -e \"console.log('Web URL: http://127.0.0.1:8001 (do not use http://0.0.0.0:8001)')\"",
+        "checkpoint:start": "npm run checkpoint:info && concurrently -k -n WEB,VITE,MOBILE -c \"yellow,cyan,green\" \"npm run serve:web\" \"npm run dev\" \"npm run serve:mobile\"",
         "ui:smoke": "playwright test"
     },
     "devDependencies": {
@@ -24,6 +28,7 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
-        "@fortawesome/fontawesome-free": "^7.2.0"
+        "@fortawesome/fontawesome-free": "^7.2.0",
+        "highcharts": "^12.4.0"
     }
 }

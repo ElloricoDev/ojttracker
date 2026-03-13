@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { formatHours } from '@/utils/formatters';
 
 const props = defineProps({
@@ -76,22 +76,6 @@ const peakMonth = computed(() => {
     }, null);
 });
 
-const barWidth = (value) => {
-    const numeric = Number(value || 0);
-    if (numeric <= 0) {
-        return '0%';
-    }
-    return `${Math.max(numeric, 4)}%`;
-};
-
-const percentWidth = (value) => {
-    const numeric = Number(value || 0);
-    if (numeric <= 0) {
-        return '0%';
-    }
-    return `${Math.min(100, numeric)}%`;
-};
-
 const statusPalette = {
     active: '#10b981',
     completed: '#0ea5e9',
@@ -109,96 +93,19 @@ const statusPalette = {
 
 const statusColor = (status) => statusPalette[status] ?? statusPalette.unknown;
 
-const trendGraph = computed(() => {
+const latestTrendPoint = computed(() => {
     const points = monthlyHours.value || [];
-    const width = 760;
-    const height = 260;
-    const padX = 46;
-    const padY = 24;
-    const plotW = width - padX * 2;
-    const plotH = height - padY * 2;
-    const max = Math.max(...points.map((point) => Number(point.hours || 0)), 1);
-
-    const mapped = points.map((point, index) => {
-        const hours = Number(point.hours || 0);
-        const x = points.length > 1
-            ? padX + (index * plotW) / (points.length - 1)
-            : padX + plotW / 2;
-        const y = padY + (1 - hours / max) * plotH;
-
-        return {
-            ...point,
-            hours,
-            x,
-            y,
-        };
-    });
-
-    const yTicks = Array.from({ length: 5 }, (_, index) => {
-        const value = ((4 - index) / 4) * max;
-        const y = padY + (index / 4) * plotH;
-
-        return {
-            value,
-            y,
-            label: `${value.toFixed(value >= 100 ? 0 : 1)}h`,
-        };
-    });
-
-    return {
-        width,
-        height,
-        padX,
-        padY,
-        mapped,
-        yTicks,
-    };
-});
-
-const trendLinePath = computed(() => {
-    const pts = trendGraph.value.mapped;
-    if (!pts.length) {
-        return '';
-    }
-
-    return pts
-        .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-        .join(' ');
-});
-
-const trendAreaPath = computed(() => {
-    const { mapped, padY, height } = trendGraph.value;
-    if (!mapped.length) {
-        return '';
-    }
-
-    const first = mapped[0];
-    const last = mapped[mapped.length - 1];
-    const baseline = height - padY;
-    const line = mapped
-        .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-        .join(' ');
-
-    return `${line} L ${last.x.toFixed(2)} ${baseline.toFixed(2)} L ${first.x.toFixed(2)} ${baseline.toFixed(2)} Z`;
-});
-
-const hoveredTrendKey = ref(null);
-const activeTrendPoint = computed(() => {
-    const points = trendGraph.value.mapped;
-    if (!points.length) {
-        return null;
-    }
-    return points.find((point) => point.key === hoveredTrendKey.value) || points[points.length - 1];
+    return points.length > 0 ? points[points.length - 1] : null;
 });
 
 const trendChange = computed(() => {
-    const points = trendGraph.value.mapped;
+    const points = monthlyHours.value || [];
     if (points.length < 2) {
         return { value: 0, direction: 'flat' };
     }
 
-    const first = Number(points[0].hours || 0);
-    const last = Number(points[points.length - 1].hours || 0);
+    const first = Number(points[0]?.hours || 0);
+    const last = Number(points[points.length - 1]?.hours || 0);
 
     if (first <= 0) {
         return { value: last > 0 ? 100 : 0, direction: last > 0 ? 'up' : 'flat' };
@@ -218,27 +125,6 @@ const placementSegments = computed(() => {
     }));
 });
 
-const placementDonut = computed(() => {
-    if (!placementSegments.value.length) {
-        return `conic-gradient(${statusPalette.unknown} 0deg 360deg)`;
-    }
-
-    let angle = 0;
-    const slices = placementSegments.value.map((segment) => {
-        const start = angle;
-        const sweep = (Number(segment.percentage || 0) / 100) * 360;
-        const end = start + sweep;
-        angle = end;
-        return `${segment.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
-    });
-
-    if (angle < 360) {
-        slices.push(`${statusPalette.unknown} ${angle.toFixed(2)}deg 360deg`);
-    }
-
-    return `conic-gradient(${slices.join(', ')})`;
-});
-
 const attendanceSegments = computed(() => {
     return attendanceStatus.value.map((row) => ({
         ...row,
@@ -246,21 +132,482 @@ const attendanceSegments = computed(() => {
     }));
 });
 
-const reportMaxCount = computed(() => {
-    return Math.max(
-        1,
-        ...reportStatus.value.map((row) => Math.max(Number(row.daily || 0), Number(row.weekly || 0))),
-    );
+const trendChartRef = ref(null);
+const workflowChartRef = ref(null);
+const placementChartRef = ref(null);
+const attendanceChartRef = ref(null);
+const highchartsReady = ref(false);
+const highchartsError = ref('');
+let HighchartsInstance = null;
+let highchartsModulesReady = false;
+let themeObserver = null;
+
+const chartInstances = {
+    trend: null,
+    workflow: null,
+    placement: null,
+    attendance: null,
+};
+
+const destroyChart = (key) => {
+    if (chartInstances[key]) {
+        chartInstances[key].destroy();
+        chartInstances[key] = null;
+    }
+};
+
+const destroyAllCharts = () => {
+    destroyChart('trend');
+    destroyChart('workflow');
+    destroyChart('placement');
+    destroyChart('attendance');
+};
+
+const initHighchartsModules = async () => {
+    if (!HighchartsInstance || highchartsModulesReady) {
+        return;
+    }
+
+    const accessibilityModule = await import('highcharts/modules/accessibility.js');
+    const moduleFactory = accessibilityModule.default || accessibilityModule;
+
+    if (typeof moduleFactory === 'function') {
+        moduleFactory(HighchartsInstance);
+    }
+
+    highchartsModulesReady = true;
+};
+
+const getChartTheme = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+
+    return {
+        textColor: isDark ? '#cbd5e1' : '#334155',
+        subtleTextColor: isDark ? '#94a3b8' : '#64748b',
+        gridColor: isDark ? 'rgba(148,163,184,0.22)' : 'rgba(148,163,184,0.28)',
+        tooltipBg: isDark ? 'rgba(15,23,42,0.94)' : 'rgba(255,255,255,0.96)',
+        tooltipBorder: isDark ? '#334155' : '#cbd5e1',
+    };
+};
+
+const renderTrendChart = (Highcharts) => {
+    if (!trendChartRef.value) {
+        return;
+    }
+
+    if (!monthlyHours.value.length) {
+        destroyChart('trend');
+        return;
+    }
+
+    destroyChart('trend');
+    const theme = getChartTheme();
+
+    chartInstances.trend = Highcharts.chart(trendChartRef.value, {
+        chart: {
+            type: 'areaspline',
+            backgroundColor: 'transparent',
+            spacing: [12, 10, 12, 10],
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        legend: { enabled: false },
+        xAxis: {
+            categories: monthlyHours.value.map((row) => row.label),
+            lineColor: theme.gridColor,
+            tickColor: theme.gridColor,
+            labels: {
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+        },
+        yAxis: {
+            title: {
+                text: 'Hours',
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+            gridLineColor: theme.gridColor,
+            labels: {
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+        },
+        tooltip: {
+            useHTML: true,
+            backgroundColor: theme.tooltipBg,
+            borderColor: theme.tooltipBorder,
+            style: {
+                color: theme.textColor,
+                fontSize: '12px',
+            },
+            formatter: function () {
+                const logs = this.point.options.logs ?? 0;
+
+                return `<strong>${this.x}</strong><br/>Hours: <strong>${formatHours(this.y || 0)}</strong><br/>Logs: <strong>${logs}</strong>`;
+            },
+        },
+        plotOptions: {
+            series: {
+                animation: false,
+            },
+            areaspline: {
+                marker: {
+                    enabled: true,
+                    radius: 4,
+                    symbol: 'circle',
+                },
+                lineWidth: 3,
+            },
+        },
+        series: [
+            {
+                name: 'Hours',
+                color: '#10b981',
+                fillColor: 'rgba(16,185,129,0.18)',
+                data: monthlyHours.value.map((row) => ({
+                    y: Number(row.hours || 0),
+                    logs: Number(row.logs || 0),
+                })),
+            },
+        ],
+    });
+};
+
+const renderWorkflowChart = (Highcharts) => {
+    if (!workflowChartRef.value) {
+        return;
+    }
+
+    if (!reportStatus.value.length) {
+        destroyChart('workflow');
+        return;
+    }
+
+    destroyChart('workflow');
+    const theme = getChartTheme();
+
+    chartInstances.workflow = Highcharts.chart(workflowChartRef.value, {
+        chart: {
+            type: 'column',
+            backgroundColor: 'transparent',
+            spacing: [12, 10, 12, 10],
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        xAxis: {
+            categories: reportStatus.value.map((row) => row.label),
+            lineColor: theme.gridColor,
+            tickColor: theme.gridColor,
+            labels: {
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Reports',
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+            gridLineColor: theme.gridColor,
+            labels: {
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+        },
+        legend: {
+            itemStyle: {
+                color: theme.textColor,
+            },
+            itemHoverStyle: {
+                color: theme.textColor,
+            },
+        },
+        tooltip: {
+            shared: true,
+            backgroundColor: theme.tooltipBg,
+            borderColor: theme.tooltipBorder,
+            style: {
+                color: theme.textColor,
+                fontSize: '12px',
+            },
+        },
+        plotOptions: {
+            series: {
+                animation: false,
+                borderRadius: 4,
+            },
+        },
+        series: [
+            {
+                name: 'Daily',
+                color: '#6366f1',
+                data: reportStatus.value.map((row) => Number(row.daily || 0)),
+            },
+            {
+                name: 'Weekly',
+                color: '#f43f5e',
+                data: reportStatus.value.map((row) => Number(row.weekly || 0)),
+            },
+        ],
+    });
+};
+
+const renderPlacementChart = (Highcharts) => {
+    if (!placementChartRef.value) {
+        return;
+    }
+
+    if (!placementSegments.value.length) {
+        destroyChart('placement');
+        return;
+    }
+
+    destroyChart('placement');
+    const theme = getChartTheme();
+
+    chartInstances.placement = Highcharts.chart(placementChartRef.value, {
+        chart: {
+            type: 'pie',
+            backgroundColor: 'transparent',
+            spacing: [12, 10, 12, 10],
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        tooltip: {
+            backgroundColor: theme.tooltipBg,
+            borderColor: theme.tooltipBorder,
+            style: {
+                color: theme.textColor,
+                fontSize: '12px',
+            },
+            pointFormat: '<strong>{point.y}</strong> placements ({point.percentage:.1f}%)',
+        },
+        legend: {
+            enabled: true,
+            itemStyle: {
+                color: theme.textColor,
+                fontSize: '11px',
+            },
+            itemHoverStyle: {
+                color: theme.textColor,
+            },
+        },
+        plotOptions: {
+            series: {
+                animation: false,
+            },
+            pie: {
+                innerSize: '65%',
+                showInLegend: true,
+                dataLabels: {
+                    enabled: false,
+                },
+            },
+        },
+        series: [
+            {
+                name: 'Placements',
+                data: placementSegments.value.map((row) => ({
+                    name: row.label,
+                    y: Number(row.count || 0),
+                    color: row.color,
+                })),
+            },
+        ],
+    });
+};
+
+const renderAttendanceChart = (Highcharts) => {
+    if (!attendanceChartRef.value) {
+        return;
+    }
+
+    if (!attendanceSegments.value.length) {
+        destroyChart('attendance');
+        return;
+    }
+
+    destroyChart('attendance');
+    const theme = getChartTheme();
+
+    chartInstances.attendance = Highcharts.chart(attendanceChartRef.value, {
+        chart: {
+            backgroundColor: 'transparent',
+            spacing: [12, 10, 12, 10],
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        xAxis: {
+            categories: attendanceSegments.value.map((row) => row.label),
+            lineColor: theme.gridColor,
+            tickColor: theme.gridColor,
+            labels: {
+                style: {
+                    color: theme.subtleTextColor,
+                    fontSize: '11px',
+                },
+            },
+        },
+        yAxis: [
+            {
+                min: 0,
+                title: {
+                    text: 'Logs',
+                    style: {
+                        color: theme.subtleTextColor,
+                        fontSize: '11px',
+                    },
+                },
+                gridLineColor: theme.gridColor,
+                labels: {
+                    style: {
+                        color: theme.subtleTextColor,
+                        fontSize: '11px',
+                    },
+                },
+            },
+            {
+                min: 0,
+                opposite: true,
+                title: {
+                    text: 'Hours',
+                    style: {
+                        color: theme.subtleTextColor,
+                        fontSize: '11px',
+                    },
+                },
+                gridLineWidth: 0,
+                labels: {
+                    style: {
+                        color: theme.subtleTextColor,
+                        fontSize: '11px',
+                    },
+                },
+            },
+        ],
+        legend: {
+            itemStyle: {
+                color: theme.textColor,
+            },
+            itemHoverStyle: {
+                color: theme.textColor,
+            },
+        },
+        tooltip: {
+            shared: true,
+            useHTML: true,
+            backgroundColor: theme.tooltipBg,
+            borderColor: theme.tooltipBorder,
+            style: {
+                color: theme.textColor,
+                fontSize: '12px',
+            },
+            formatter: function () {
+                const logsPoint = this.points?.find((point) => point.series.name === 'Logs');
+                const hoursPoint = this.points?.find((point) => point.series.name === 'Hours');
+
+                return `<strong>${this.x}</strong><br/>Logs: <strong>${logsPoint?.y ?? 0}</strong><br/>Hours: <strong>${formatHours(hoursPoint?.y ?? 0)}</strong>`;
+            },
+        },
+        plotOptions: {
+            series: {
+                animation: false,
+            },
+            column: {
+                borderRadius: 4,
+            },
+            spline: {
+                marker: {
+                    enabled: true,
+                    radius: 4,
+                },
+            },
+        },
+        series: [
+            {
+                type: 'column',
+                name: 'Logs',
+                data: attendanceSegments.value.map((row) => ({
+                    y: Number(row.count || 0),
+                    color: row.color,
+                })),
+            },
+            {
+                type: 'spline',
+                name: 'Hours',
+                yAxis: 1,
+                color: '#22d3ee',
+                data: attendanceSegments.value.map((row) => Number(row.hours || 0)),
+            },
+        ],
+    });
+};
+
+const renderCharts = async () => {
+    if (!highchartsReady.value || !HighchartsInstance) {
+        return;
+    }
+
+    await nextTick();
+
+    const Highcharts = HighchartsInstance;
+    renderTrendChart(Highcharts);
+    renderWorkflowChart(Highcharts);
+    renderPlacementChart(Highcharts);
+    renderAttendanceChart(Highcharts);
+};
+
+onMounted(async () => {
+    try {
+        const highchartsModule = await import('highcharts');
+        HighchartsInstance = highchartsModule.default || highchartsModule;
+        await initHighchartsModules();
+        highchartsReady.value = true;
+        highchartsError.value = '';
+        await renderCharts();
+    } catch (error) {
+        highchartsReady.value = false;
+        highchartsError.value = error?.message || 'Unable to initialize Highcharts. Run npm install and restart Vite.';
+        destroyAllCharts();
+    }
+
+    themeObserver = new MutationObserver(() => {
+        renderCharts();
+    });
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+    });
 });
 
-const workflowBarWidth = (value) => {
-    const max = reportMaxCount.value || 1;
-    const numeric = Number(value || 0);
-    if (numeric <= 0) {
-        return '0%';
-    }
-    return `${Math.max((numeric / max) * 100, 4).toFixed(2)}%`;
-};
+watch(
+    [monthlyHours, reportStatus, placementSegments, attendanceSegments],
+    () => {
+        renderCharts();
+    },
+    { deep: true },
+);
+
+onBeforeUnmount(() => {
+    themeObserver?.disconnect();
+    themeObserver = null;
+    destroyAllCharts();
+});
 </script>
 
 <template>
@@ -390,83 +737,37 @@ const workflowBarWidth = (value) => {
                         </div>
                     </div>
 
-                    <div v-if="trendGraph.mapped.length > 0" class="mt-4 space-y-4">
+                    <div v-if="monthlyHours.length > 0" class="mt-4 space-y-4">
                         <div
-                            class="rounded-2xl border border-slate-200 bg-white/80 p-3 dark:border-slate-700 dark:bg-slate-900/60"
-                            @mouseleave="hoveredTrendKey = null"
+                            v-if="highchartsError"
+                            class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
                         >
-                            <svg :viewBox="`0 0 ${trendGraph.width} ${trendGraph.height}`" class="h-[240px] w-full">
-                                <g v-for="tick in trendGraph.yTicks" :key="`tick-${tick.label}`">
-                                    <line
-                                        :x1="trendGraph.padX"
-                                        :x2="trendGraph.width - trendGraph.padX"
-                                        :y1="tick.y"
-                                        :y2="tick.y"
-                                        stroke="#e2e8f0"
-                                        stroke-dasharray="4 4"
-                                    />
-                                    <text
-                                        x="8"
-                                        :y="tick.y + 4"
-                                        font-size="11"
-                                        fill="#94a3b8"
-                                    >{{ tick.label }}</text>
-                                </g>
-
-                                <path :d="trendAreaPath" fill="rgba(16, 185, 129, 0.16)" />
-                                <path
-                                    :d="trendLinePath"
-                                    fill="none"
-                                    stroke="#10b981"
-                                    stroke-width="3"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-
-                                <g
-                                    v-for="point in trendGraph.mapped"
-                                    :key="`point-${point.key}`"
-                                    @mouseenter="hoveredTrendKey = point.key"
-                                >
-                                    <circle
-                                        :cx="point.x"
-                                        :cy="point.y"
-                                        :r="activeTrendPoint?.key === point.key ? 6 : 4.5"
-                                        :fill="activeTrendPoint?.key === point.key ? '#059669' : '#10b981'"
-                                        class="transition-all"
-                                    />
-                                </g>
-                            </svg>
-
-                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                <button
-                                    v-for="point in trendGraph.mapped"
-                                    :key="`chip-${point.key}`"
-                                    type="button"
-                                    class="rounded-lg border px-2 py-1 text-[11px] font-semibold transition"
-                                    :class="activeTrendPoint?.key === point.key
-                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
-                                    @mouseenter="hoveredTrendKey = point.key"
-                                    @focus="hoveredTrendKey = point.key"
-                                >
-                                    {{ point.label }}
-                                </button>
-                            </div>
+                            {{ highchartsError }}
                         </div>
+                        <div
+                            v-else-if="!highchartsReady"
+                            class="rounded-xl border border-slate-200 bg-white/80 px-3 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
+                        >
+                            Loading chart...
+                        </div>
+                        <div
+                            v-else
+                            ref="trendChartRef"
+                            class="h-[300px] w-full rounded-2xl border border-slate-200 bg-white/70 p-2 dark:border-slate-700 dark:bg-slate-900/50"
+                        ></div>
 
                         <div class="grid gap-3 sm:grid-cols-3">
                             <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
-                                <p class="text-[11px] uppercase tracking-wide text-slate-400">Selected Month</p>
-                                <p class="mt-1 text-sm font-semibold text-slate-700">{{ activeTrendPoint?.label ?? '-' }}</p>
+                                <p class="text-[11px] uppercase tracking-wide text-slate-400">Latest Month</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{{ latestTrendPoint?.label ?? '-' }}</p>
                             </div>
                             <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
                                 <p class="text-[11px] uppercase tracking-wide text-slate-400">Hours</p>
-                                <p class="mt-1 text-sm font-semibold text-emerald-700">{{ formatHours(activeTrendPoint?.hours ?? 0) }}</p>
+                                <p class="mt-1 text-sm font-semibold text-emerald-700">{{ formatHours(latestTrendPoint?.hours ?? 0) }}</p>
                             </div>
                             <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
                                 <p class="text-[11px] uppercase tracking-wide text-slate-400">Attendance Logs</p>
-                                <p class="mt-1 text-sm font-semibold text-slate-700">{{ activeTrendPoint?.logs ?? 0 }}</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{{ latestTrendPoint?.logs ?? 0 }}</p>
                             </div>
                         </div>
                     </div>
@@ -480,34 +781,37 @@ const workflowBarWidth = (value) => {
                     </h3>
                     <p class="mt-1 text-xs text-slate-500">Daily and weekly report status distribution.</p>
 
-                    <div v-if="reportStatus.length > 0" class="mt-4 space-y-3">
-                        <div class="flex items-center gap-3 text-[11px] text-slate-500">
-                            <span class="inline-flex items-center gap-1">
-                                <span class="h-2.5 w-2.5 rounded-full bg-indigo-500"></span>Daily
-                            </span>
-                            <span class="inline-flex items-center gap-1">
-                                <span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span>Weekly
-                            </span>
+                    <div v-if="reportStatus.length > 0" class="mt-4 space-y-4">
+                        <div
+                            v-if="highchartsError"
+                            class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                        >
+                            {{ highchartsError }}
                         </div>
-                        <div v-for="row in reportStatus" :key="`report-${row.status}`" class="space-y-1">
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="font-semibold text-slate-700">{{ row.label }}</span>
-                                <span class="text-slate-500">{{ row.count }} total • {{ row.percentage }}%</span>
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-10 text-[11px] text-slate-400">Daily</span>
-                                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                                        <div class="h-2 rounded-full bg-indigo-500 transition-all" :style="{ width: workflowBarWidth(row.daily) }"></div>
-                                    </div>
-                                    <span class="w-8 text-right text-[11px] text-slate-500">{{ row.daily }}</span>
+                        <div
+                            v-else-if="!highchartsReady"
+                            class="rounded-xl border border-slate-200 bg-white/80 px-3 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
+                        >
+                            Loading chart...
+                        </div>
+                        <div
+                            v-else
+                            ref="workflowChartRef"
+                            class="h-[300px] w-full rounded-2xl border border-slate-200 bg-white/70 p-2 dark:border-slate-700 dark:bg-slate-900/50"
+                        ></div>
+
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <div
+                                v-for="row in reportStatus"
+                                :key="`report-${row.status}`"
+                                class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60"
+                            >
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-semibold text-slate-700 dark:text-slate-200">{{ row.label }}</span>
+                                    <span class="text-slate-500">{{ row.count }} total • {{ row.percentage }}%</span>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="w-10 text-[11px] text-slate-400">Weekly</span>
-                                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                                        <div class="h-2 rounded-full bg-rose-500 transition-all" :style="{ width: workflowBarWidth(row.weekly) }"></div>
-                                    </div>
-                                    <span class="w-8 text-right text-[11px] text-slate-500">{{ row.weekly }}</span>
+                                <div class="mt-1.5 text-[11px] text-slate-500">
+                                    {{ row.daily }} daily • {{ row.weekly }} weekly
                                 </div>
                             </div>
                         </div>
@@ -522,30 +826,37 @@ const workflowBarWidth = (value) => {
                         <i class="fa-solid fa-list-check text-sm text-slate-400"></i>
                         Placement Status
                     </h3>
-                    <div v-if="placementSegments.length > 0" class="mt-4 grid gap-5 sm:grid-cols-[170px_1fr] sm:items-center">
-                        <div class="mx-auto flex h-40 w-40 items-center justify-center rounded-full p-3" :style="{ background: placementDonut }">
-                            <div class="flex h-full w-full items-center justify-center rounded-full bg-white dark:bg-slate-900">
-                                <div class="text-center">
-                                    <p class="text-[11px] uppercase tracking-wide text-slate-400">Placements</p>
-                                    <p class="text-2xl font-bold text-slate-800">{{ props.stats.totalPlacements }}</p>
-                                </div>
-                            </div>
+                    <div v-if="placementSegments.length > 0" class="mt-4 space-y-4">
+                        <div
+                            v-if="highchartsError"
+                            class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                        >
+                            {{ highchartsError }}
                         </div>
+                        <div
+                            v-else-if="!highchartsReady"
+                            class="rounded-xl border border-slate-200 bg-white/80 px-3 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
+                        >
+                            Loading chart...
+                        </div>
+                        <div
+                            v-else
+                            ref="placementChartRef"
+                            class="h-[300px] w-full rounded-2xl border border-slate-200 bg-white/70 p-2 dark:border-slate-700 dark:bg-slate-900/50"
+                        ></div>
 
-                        <div class="space-y-3">
-                            <div v-for="row in placementSegments" :key="`placement-${row.status}`" class="space-y-1.5">
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <div
+                                v-for="row in placementSegments"
+                                :key="`placement-${row.status}`"
+                                class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60"
+                            >
                                 <div class="flex items-center justify-between text-xs">
-                                    <span class="inline-flex items-center gap-2 font-semibold text-slate-700">
+                                    <span class="inline-flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-200">
                                         <span class="h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: row.color }"></span>
                                         {{ row.label }}
                                     </span>
                                     <span class="text-slate-500">{{ row.count }} ({{ row.percentage }}%)</span>
-                                </div>
-                                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                                    <div
-                                        class="h-2 rounded-full transition-all"
-                                        :style="{ width: percentWidth(row.percentage), backgroundColor: row.color }"
-                                    ></div>
                                 </div>
                             </div>
                         </div>
@@ -559,17 +870,23 @@ const workflowBarWidth = (value) => {
                         Attendance Status
                     </h3>
                     <div v-if="attendanceSegments.length > 0" class="mt-4 space-y-4">
-                        <div class="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                            <div class="flex h-full w-full">
-                                <div
-                                    v-for="row in attendanceSegments"
-                                    :key="`attendance-stack-${row.status}`"
-                                    class="h-full"
-                                    :style="{ width: percentWidth(row.percentage), backgroundColor: row.color }"
-                                    :title="`${row.label}: ${row.count} logs`"
-                                ></div>
-                            </div>
+                        <div
+                            v-if="highchartsError"
+                            class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                        >
+                            {{ highchartsError }}
                         </div>
+                        <div
+                            v-else-if="!highchartsReady"
+                            class="rounded-xl border border-slate-200 bg-white/80 px-3 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
+                        >
+                            Loading chart...
+                        </div>
+                        <div
+                            v-else
+                            ref="attendanceChartRef"
+                            class="h-[300px] w-full rounded-2xl border border-slate-200 bg-white/70 p-2 dark:border-slate-700 dark:bg-slate-900/50"
+                        ></div>
 
                         <div class="grid gap-2 sm:grid-cols-2">
                             <div
