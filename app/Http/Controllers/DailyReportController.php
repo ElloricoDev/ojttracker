@@ -79,7 +79,9 @@ class DailyReportController extends Controller
         $this->dailyReportService->create($validated, $request->user());
         $this->toast($request->user()?->id, 'Report submitted', 'Your daily report has been submitted.');
 
-        return back();
+        return to_route('daily-reports.index', [
+            'placement_id' => $placement->id,
+        ]);
     }
 
     public function update(UpdateDailyReportRequest $request, DailyReport $dailyReport): RedirectResponse

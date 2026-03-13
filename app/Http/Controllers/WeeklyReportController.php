@@ -80,7 +80,9 @@ class WeeklyReportController extends Controller
         $this->weeklyReportService->create($validated, $request->user());
         $this->toast($request->user()?->id, 'Report submitted', 'Your weekly report has been submitted.');
 
-        return back();
+        return to_route('weekly-reports.index', [
+            'placement_id' => $placement->id,
+        ]);
     }
 
     public function update(UpdateWeeklyReportRequest $request, WeeklyReport $weeklyReport): RedirectResponse

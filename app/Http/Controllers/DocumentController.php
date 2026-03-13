@@ -80,7 +80,9 @@ class DocumentController extends Controller
         $this->documentService->create($request->validated(), $request->file('document_file'), $request->user());
         $this->toast($request->user()?->id, 'Document uploaded', 'Your document has been uploaded.');
 
-        return back();
+        return to_route('documents.index', [
+            'placement_id' => $placement->id,
+        ]);
     }
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse

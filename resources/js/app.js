@@ -9,6 +9,20 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+const applyInitialTheme = () => {
+    try {
+        const saved = localStorage.getItem('ojt_dark_mode');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const useDark = saved === '1' || (saved === null && prefersDark);
+
+        document.documentElement.classList.toggle('dark', useDark);
+    } catch {
+        // ignore theme bootstrap failures
+    }
+};
+
+applyInitialTheme();
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) =>

@@ -8,7 +8,7 @@ defineProps({
 
 <template>
     <div v-show="message" class="mt-1 flex items-center gap-1.5">
-        <i class="fa-solid fa-circle-exclamation text-xs text-rose-500"></i>
-        <p class="text-xs text-rose-600" style="font-family: 'Manrope', sans-serif;">{{ message }}</p>
+        <i class="fa-solid fa-circle-exclamation text-xs text-rose-500 dark:text-rose-400"></i>
+        <p class="text-xs text-rose-600 dark:text-rose-300" style="font-family: 'Manrope', sans-serif;">{{ message }}</p>
     </div>
 </template>

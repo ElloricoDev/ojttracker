@@ -78,7 +78,9 @@ class EvaluationController extends Controller
         $this->evaluationService->create($request->validated(), $request->user());
         $this->toast($request->user()?->id, 'Evaluation submitted', 'Evaluation has been submitted.');
 
-        return back();
+        return to_route('evaluations.index', [
+            'placement_id' => $placement->id,
+        ]);
     }
 
     public function update(UpdateEvaluationRequest $request, Evaluation $evaluation): RedirectResponse
@@ -168,4 +170,3 @@ class EvaluationController extends Controller
         }
     }
 }
-

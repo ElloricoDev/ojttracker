@@ -39,9 +39,63 @@ const isBatchesActive = computed(() => route().current('batches.*'));
 const sidebarQuery = ref('');
 const compactMode = ref(false);
 const sidebarScrollRef = ref(null);
+const sidebarSearchInputRef = ref(null);
+const mobileSidebarSearchInputRef = ref(null);
+const shortcutHint = ref('Ctrl+K');
 let sidebarScrollTimer = null;
+let navigationRevealTimer = null;
+let removeNavStartListener = null;
+let removeNavFinishListener = null;
+let removeNavErrorListener = null;
+let removeNavInvalidListener = null;
+const isNavigating = ref(false);
+
+const darkMode = ref(false);
+const toggleDarkMode = () => {
+    darkMode.value = !darkMode.value;
+    document.documentElement.classList.toggle('dark', darkMode.value);
+    try { localStorage.setItem('ojt_dark_mode', darkMode.value ? '1' : '0'); } catch {}
+};
 
 const isCompact = computed(() => compactMode.value);
+
+const sidebarSearchLabels = [
+    'Dashboard',
+    'Placements',
+    'All Placements',
+    'Request Placement',
+    'New Placement',
+    'Attendance',
+    'DTR Generator',
+    'Reports',
+    'Daily Reports',
+    'New Daily Report',
+    'Weekly Reports',
+    'New Weekly Report',
+    'Evaluations',
+    'All Evaluations',
+    'New Evaluation',
+    'Documents',
+    'All Documents',
+    'Upload Document',
+    'Notifications',
+    'Users',
+    'All Users',
+    'New User',
+    'Students',
+    'All Students',
+    'New Student',
+    'Companies',
+    'All Companies',
+    'New Company',
+    'Supervisors',
+    'All Supervisors',
+    'New Supervisor',
+    'Batches',
+    'All Batches',
+    'New Batch',
+    'Audit Logs',
+];
 
 const normalizeLabel = (label) => (label || '').toString().toLowerCase();
 const matchesLabel = (label) => {
@@ -51,6 +105,111 @@ const matchesLabel = (label) => {
     return normalizeLabel(label).includes(normalizeLabel(sidebarQuery.value));
 };
 const groupVisible = (labels) => labels.some((label) => matchesLabel(label));
+const isSidebarSearching = computed(() => normalizeLabel(sidebarQuery.value).trim().length > 0);
+const isGroupExpanded = (isOpen, isActive, labels = []) => {
+    if (isOpen || isActive) {
+        return true;
+    }
+    if (!isSidebarSearching.value) {
+        return false;
+    }
+    return labels.length ? groupVisible(labels) : true;
+};
+const hasSidebarMatches = computed(() => {
+    if (!sidebarQuery.value) {
+        return true;
+    }
+    return sidebarSearchLabels.some((label) => matchesLabel(label));
+});
+const clearSidebarSearch = () => {
+    sidebarQuery.value = '';
+};
+const quickSwitchPlaceholder = computed(() => `Quick switch (${shortcutHint.value})`);
+
+const isTypingTarget = (target) => {
+    if (!target || !(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    if (target.isContentEditable) {
+        return true;
+    }
+
+    const tag = target.tagName?.toLowerCase();
+
+    return ['input', 'textarea', 'select'].includes(tag);
+};
+
+const focusQuickSwitch = async () => {
+    if (window.innerWidth < 1024) {
+        showingNavigationDropdown.value = true;
+        await nextTick();
+        mobileSidebarSearchInputRef.value?.focus();
+        mobileSidebarSearchInputRef.value?.select?.();
+        return;
+    }
+
+    sidebarSearchInputRef.value?.focus();
+    sidebarSearchInputRef.value?.select?.();
+};
+
+const handleGlobalShortcuts = (event) => {
+    if (event.defaultPrevented) {
+        return;
+    }
+
+    const key = (event.key || '').toLowerCase();
+    const target = event.target;
+
+    if ((event.ctrlKey || event.metaKey) && key === 'k') {
+        event.preventDefault();
+        focusQuickSwitch();
+        return;
+    }
+
+    if (key === 'escape' && showingNavigationDropdown.value) {
+        event.preventDefault();
+        showingNavigationDropdown.value = false;
+        return;
+    }
+
+    if (key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !isTypingTarget(target)) {
+        event.preventDefault();
+        focusQuickSwitch();
+    }
+};
+
+const setBodyScrollLock = (locked) => {
+    document.body.style.overflow = locked ? 'hidden' : '';
+};
+
+const startNavigationIndicator = () => {
+    if (navigationRevealTimer) {
+        clearTimeout(navigationRevealTimer);
+    }
+
+    navigationRevealTimer = setTimeout(() => {
+        isNavigating.value = true;
+    }, 120);
+};
+
+const stopNavigationIndicator = () => {
+    if (navigationRevealTimer) {
+        clearTimeout(navigationRevealTimer);
+        navigationRevealTimer = null;
+    }
+
+    isNavigating.value = false;
+};
+const placementsExpanded = computed(() => isGroupExpanded(placementsOpen.value, isPlacementsActive.value, ['All Placements', 'Request Placement', 'New Placement']));
+const dailyReportsExpanded = computed(() => isGroupExpanded(dailyReportsOpen.value, isDailyReportsActive.value, ['Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report']));
+const evaluationsExpanded = computed(() => isGroupExpanded(evaluationsOpen.value, isEvaluationsActive.value, ['All Evaluations', 'New Evaluation']));
+const documentsExpanded = computed(() => isGroupExpanded(documentsOpen.value, isDocumentsActive.value, ['All Documents', 'Upload Document']));
+const usersExpanded = computed(() => isGroupExpanded(usersOpen.value, isUsersActive.value, ['All Users', 'New User']));
+const studentsExpanded = computed(() => isGroupExpanded(studentsOpen.value, isStudentsActive.value, ['All Students', 'New Student']));
+const companiesExpanded = computed(() => isGroupExpanded(companiesOpen.value, isCompaniesActive.value, ['All Companies', 'New Company']));
+const batchesExpanded = computed(() => isGroupExpanded(batchesOpen.value, isBatchesActive.value, ['All Batches', 'New Batch']));
+const supervisorsExpanded = computed(() => isGroupExpanded(supervisorsOpen.value, isSupervisorsActive.value, ['All Supervisors', 'New Supervisor']));
 
 const loadSidebarPrefs = () => {
     try {
@@ -187,8 +346,12 @@ const pushToast = (type, message) => {
     toasts.value.push({ id, type, message });
 
     setTimeout(() => {
-        toasts.value = toasts.value.filter((toast) => toast.id !== id);
+        removeToast(id);
     }, 3500);
+};
+
+const removeToast = (id) => {
+    toasts.value = toasts.value.filter((toast) => toast.id !== id);
 };
 
 watch(
@@ -204,6 +367,26 @@ onMounted(() => {
     restoreSidebarScroll();
     pollNotifications();
     pollTimer = setInterval(pollNotifications, 45000);
+    shortcutHint.value = /Mac|iPhone|iPad|iPod/i.test(window.navigator.platform) ? '⌘K' : 'Ctrl+K';
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    removeNavStartListener = router.on('start', startNavigationIndicator);
+    removeNavFinishListener = router.on('finish', stopNavigationIndicator);
+    removeNavErrorListener = router.on('error', stopNavigationIndicator);
+    removeNavInvalidListener = router.on('invalid', stopNavigationIndicator);
+    try {
+        const root = document.documentElement;
+        const saved = localStorage.getItem('ojt_dark_mode');
+
+        if (saved === '1') {
+            root.classList.add('dark');
+        } else if (saved === '0') {
+            root.classList.remove('dark');
+        }
+
+        darkMode.value = root.classList.contains('dark');
+    } catch {
+        darkMode.value = document.documentElement.classList.contains('dark');
+    }
 });
 
 watch(
@@ -217,6 +400,14 @@ watch(
     () => page.url,
     () => {
         restoreSidebarScroll();
+        showingNavigationDropdown.value = false;
+    },
+);
+
+watch(
+    () => showingNavigationDropdown.value,
+    (open) => {
+        setBodyScrollLock(open);
     },
 );
 
@@ -225,11 +416,25 @@ onUnmounted(() => {
         clearInterval(pollTimer);
         pollTimer = null;
     }
+    if (sidebarScrollTimer) {
+        clearTimeout(sidebarScrollTimer);
+        sidebarScrollTimer = null;
+    }
+    if (navigationRevealTimer) {
+        clearTimeout(navigationRevealTimer);
+        navigationRevealTimer = null;
+    }
+    window.removeEventListener('keydown', handleGlobalShortcuts);
+    setBodyScrollLock(false);
+    removeNavStartListener?.();
+    removeNavFinishListener?.();
+    removeNavErrorListener?.();
+    removeNavInvalidListener?.();
 });
 </script>
 
 <template>
-    <div class="h-screen overflow-hidden bg-slate-50 text-slate-900">
+    <div class="h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <Head>
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -240,22 +445,34 @@ onUnmounted(() => {
         </Head>
 
         <div class="relative h-screen overflow-hidden">
+            <div class="route-progress-track" :aria-busy="isNavigating ? 'true' : 'false'" aria-live="polite">
+                <transition
+                    enter-active-class="transition duration-200 ease-out"
+                    enter-from-class="opacity-0"
+                    enter-to-class="opacity-100"
+                    leave-active-class="transition duration-150 ease-in"
+                    leave-from-class="opacity-100"
+                    leave-to-class="opacity-0"
+                >
+                    <div v-if="isNavigating" class="route-progress-bar"></div>
+                </transition>
+            </div>
             <div
-                class="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_circle_at_12%_10%,#DCFCE7_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FEF3C7_0%,transparent_40%),linear-gradient(180deg,#F8FAFC_0%,#EEF2FF_100%)]"
+                class="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_circle_at_12%_10%,#DCFCE7_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FEF3C7_0%,transparent_40%),linear-gradient(180deg,#F8FAFC_0%,#EEF2FF_100%)] dark:hidden"
             ></div>
             <div
-                class="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(90deg,rgba(15,23,42,0.12)_1px,transparent_1px),linear-gradient(0deg,rgba(15,23,42,0.08)_1px,transparent_1px)] [background-size:48px_48px]"
+                class="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(90deg,rgba(15,23,42,0.12)_1px,transparent_1px),linear-gradient(0deg,rgba(15,23,42,0.08)_1px,transparent_1px)] [background-size:48px_48px] dark:hidden"
             ></div>
 
             <div class="relative flex h-screen">
-                <aside class="hidden w-72 flex-col border-r border-slate-200/70 bg-white/70 shadow-sm backdrop-blur lg:fixed lg:inset-y-0 lg:flex">
-                    <div class="flex items-center gap-3 border-b border-slate-200/70 px-6 py-5">
+                <aside class="hidden w-72 flex-col border-r border-slate-200/70 bg-white/70 shadow-sm backdrop-blur dark:border-slate-700/50 dark:bg-slate-900/90 lg:fixed lg:inset-y-0 lg:flex">
+                    <div class="flex items-center gap-3 border-b border-slate-200/70 px-6 py-5 dark:border-slate-700/50">
                         <Link :href="route('dashboard')" class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white">
                                 <ApplicationLogo class="h-6 w-6 fill-current" />
                             </div>
                             <div>
-                                <div class="text-sm font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</div>
+                                <div class="text-sm font-semibold text-slate-900 dark:text-slate-100" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</div>
                                 <div class="text-xs text-slate-500" style="font-family: 'Manrope', sans-serif;">On-the-job training</div>
                             </div>
                         </Link>
@@ -266,15 +483,33 @@ onUnmounted(() => {
                             <div class="relative">
                                 <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
                                 <input
+                                    ref="sidebarSearchInputRef"
                                     v-model="sidebarQuery"
                                     type="search"
-                                    placeholder="Quick switch"
-                                    class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400"
+                                    :placeholder="quickSwitchPlaceholder"
+                                    class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-9 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-500"
+                                    @keydown.esc.prevent="clearSidebarSearch"
                                 />
+                                <button
+                                    v-if="sidebarQuery"
+                                    type="button"
+                                    class="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                                    aria-label="Clear sidebar search"
+                                    title="Clear search"
+                                    @click="clearSidebarSearch"
+                                >
+                                    <i class="fa-solid fa-xmark text-[11px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="sidebarQuery && !hasSidebarMatches" class="mb-4 rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                            <div class="flex items-center justify-between gap-2">
+                                <span>No menu match for "{{ sidebarQuery }}"</span>
+                                <button type="button" class="font-semibold text-emerald-600 hover:text-emerald-500" @click="clearSidebarSearch">Clear</button>
                             </div>
                         </div>
                         <div :class="isCompact ? 'space-y-1 text-[13px]' : 'space-y-2 text-sm'">
-                            <div v-show="groupVisible(['Dashboard', 'Placements', 'All Placements', 'New Placement', 'Request Placement', 'Attendance', 'Reports', 'Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report', 'Evaluations', 'All Evaluations', 'New Evaluation', 'Documents', 'All Documents', 'Upload Document'])" class="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            <div v-show="groupVisible(['Dashboard', 'Placements', 'All Placements', 'New Placement', 'Request Placement', 'Attendance', 'DTR Generator', 'Reports', 'Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report', 'Evaluations', 'All Evaluations', 'New Evaluation', 'Documents', 'All Documents', 'Upload Document'])" class="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                                 Core
                             </div>
                             <ResponsiveNavLink v-show="matchesLabel('Dashboard')" :href="route('dashboard')" :active="route().current('dashboard')">
@@ -289,15 +524,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isPlacementsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="placementsOpen = !placementsOpen"
-                                    :title="placementsOpen || isPlacementsActive ? '' : 'All Placements, New Placement'"
+                                    :title="placementsExpanded ? '' : 'All Placements, New Placement'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-briefcase text-base"></i>
                                     </span>
                                     <span class="flex-1">Placements</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="placementsOpen || isPlacementsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="placementsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="placementsOpen || isPlacementsActive" class="ml-12 space-y-2">
+                                <div v-show="placementsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Placements')" :href="route('placements.index')" :active="route().current('placements.index')" :class="route().current('placements.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -336,15 +571,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isDailyReportsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="dailyReportsOpen = !dailyReportsOpen"
-                                    :title="dailyReportsOpen || isDailyReportsActive ? '' : 'Daily Reports, Weekly Reports'"
+                                    :title="dailyReportsExpanded ? '' : 'Daily Reports, Weekly Reports'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-clipboard text-base"></i>
                                     </span>
                                     <span class="flex-1">Reports</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="dailyReportsOpen || isDailyReportsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="dailyReportsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="dailyReportsOpen || isDailyReportsActive" class="ml-12 space-y-2">
+                                <div v-show="dailyReportsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('Daily Reports')" :href="route('daily-reports.index')" :active="route().current('daily-reports.index')" :class="route().current('daily-reports.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -377,15 +612,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isEvaluationsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="evaluationsOpen = !evaluationsOpen"
-                                    :title="evaluationsOpen || isEvaluationsActive ? '' : 'All Evaluations, New Evaluation'"
+                                    :title="evaluationsExpanded ? '' : 'All Evaluations, New Evaluation'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-star text-base"></i>
                                     </span>
                                     <span class="flex-1">Evaluations</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="evaluationsOpen || isEvaluationsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="evaluationsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="evaluationsOpen || isEvaluationsActive" class="ml-12 space-y-2">
+                                <div v-show="evaluationsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Evaluations')" :href="route('evaluations.index')" :active="route().current('evaluations.index')" :class="route().current('evaluations.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -406,15 +641,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isDocumentsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="documentsOpen = !documentsOpen"
-                                    :title="documentsOpen || isDocumentsActive ? '' : 'All Documents, Upload Document'"
+                                    :title="documentsExpanded ? '' : 'All Documents, Upload Document'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-file-lines text-base"></i>
                                     </span>
                                     <span class="flex-1">Documents</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="documentsOpen || isDocumentsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="documentsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="documentsOpen || isDocumentsActive" class="ml-12 space-y-2">
+                                <div v-show="documentsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Documents')" :href="route('documents.index')" :active="route().current('documents.index')" :class="route().current('documents.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -453,15 +688,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isUsersActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="usersOpen = !usersOpen"
-                                    :title="usersOpen || isUsersActive ? '' : 'All Users, New User'"
+                                    :title="usersExpanded ? '' : 'All Users, New User'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-user text-base"></i>
                                     </span>
                                     <span class="flex-1">Users</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="usersOpen || isUsersActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="usersExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="usersOpen || isUsersActive" class="ml-12 space-y-2">
+                                <div v-show="usersExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Users')" :href="route('users.index')" :active="route().current('users.index')" :class="route().current('users.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -482,15 +717,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isStudentsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="studentsOpen = !studentsOpen"
-                                    :title="studentsOpen || isStudentsActive ? '' : 'All Students, New Student'"
+                                    :title="studentsExpanded ? '' : 'All Students, New Student'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-graduation-cap text-base"></i>
                                     </span>
                                     <span class="flex-1">Students</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="studentsOpen || isStudentsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="studentsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="studentsOpen || isStudentsActive" class="ml-12 space-y-2">
+                                <div v-show="studentsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Students')" :href="route('students.index')" :active="route().current('students.index')" :class="route().current('students.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -511,15 +746,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isCompaniesActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="companiesOpen = !companiesOpen"
-                                    :title="companiesOpen || isCompaniesActive ? '' : 'All Companies, New Company'"
+                                    :title="companiesExpanded ? '' : 'All Companies, New Company'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-building text-base"></i>
                                     </span>
                                     <span class="flex-1">Companies</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="companiesOpen || isCompaniesActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="companiesExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="companiesOpen || isCompaniesActive" class="ml-12 space-y-2">
+                                <div v-show="companiesExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Companies')" :href="route('companies.index')" :active="route().current('companies.index')" :class="route().current('companies.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -540,15 +775,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isBatchesActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="batchesOpen = !batchesOpen"
-                                    :title="batchesOpen || isBatchesActive ? '' : 'All Batches, New Batch'"
+                                    :title="batchesExpanded ? '' : 'All Batches, New Batch'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-calendar text-base"></i>
                                     </span>
                                     <span class="flex-1">Batches</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="batchesOpen || isBatchesActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="batchesExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="batchesOpen || isBatchesActive" class="ml-12 space-y-2">
+                                <div v-show="batchesExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Batches')" :href="route('batches.index')" :active="route().current('batches.index')" :class="route().current('batches.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -569,15 +804,15 @@ onUnmounted(() => {
                                     class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                     :class="isSupervisorsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                     @click="supervisorsOpen = !supervisorsOpen"
-                                    :title="supervisorsOpen || isSupervisorsActive ? '' : 'All Supervisors, New Supervisor'"
+                                    :title="supervisorsExpanded ? '' : 'All Supervisors, New Supervisor'"
                                 >
                                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                         <i class="fa-regular fa-id-badge text-base"></i>
                                     </span>
                                     <span class="flex-1">Supervisors</span>
-                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="supervisorsOpen || isSupervisorsActive ? 'rotate-180' : ''"></i>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="supervisorsExpanded ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div v-show="supervisorsOpen || isSupervisorsActive" class="ml-12 space-y-2">
+                                <div v-show="supervisorsExpanded" class="ml-12 space-y-2">
                                     <ResponsiveNavLink v-show="matchesLabel('All Supervisors')" :href="route('supervisors.index')" :active="route().current('supervisors.index')" :class="route().current('supervisors.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                             <i class="fa-solid fa-list text-xs"></i>
@@ -600,13 +835,13 @@ onUnmounted(() => {
                             </ResponsiveNavLink>
                         </div>
                     </div>
-                    <div class="border-t border-slate-200/70 px-6 py-4 text-xs text-slate-500">
+                    <div class="border-t border-slate-200/70 px-6 py-4 text-xs text-slate-500 dark:border-slate-700/50 dark:text-slate-400">
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <div class="font-semibold text-slate-700">OJT Tracker</div>
+                                <div class="font-semibold text-slate-700 dark:text-slate-300">OJT Tracker</div>
                                 <div>Administrative Console</div>
                             </div>
-                            <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900" @click="compactMode = !compactMode">
+                            <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:text-slate-200" @click="compactMode = !compactMode">
                                 <i class="fa-solid" :class="compactMode ? 'fa-expand' : 'fa-compress'"></i>
                                 {{ compactMode ? 'Default' : 'Compact' }}
                             </button>
@@ -615,70 +850,90 @@ onUnmounted(() => {
                 </aside>
 
                 <div class="flex h-screen flex-1 flex-col lg:ml-72">
-                    <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/70 px-4 py-3 backdrop-blur lg:hidden">
-                        <button @click="showingNavigationDropdown = true" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900">
+                    <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/70 px-4 py-3 backdrop-blur dark:border-slate-700/50 dark:bg-slate-900/90 lg:hidden">
+                        <button @click="showingNavigationDropdown = true" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:text-slate-100">
                             <i class="fa-solid fa-bars text-lg"></i>
                         </button>
                         <Link :href="route('dashboard')" class="flex items-center gap-2">
                             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
                                 <ApplicationLogo class="h-5 w-5 fill-current" />
                             </div>
-                            <span class="text-sm font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</span>
+                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</span>
                         </Link>
-                        <Dropdown align="right" width="48" contentClasses="py-2 bg-white/95">
-                            <template #trigger>
-                                <span class="inline-flex rounded-xl">
-                                    <button type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white/80 px-3 py-1 text-sm font-medium text-slate-700">
-                                        {{ $page.props.auth.user.name }}
-                                    </button>
-                                </span>
-                            </template>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="toggleDarkMode"
+                                :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+                                class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:text-slate-200"
+                            >
+                                <i :class="darkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" class="text-sm"></i>
+                            </button>
+                            <Dropdown align="right" width="48" contentClasses="py-2 bg-white/95">
+                                <template #trigger>
+                                    <span class="inline-flex rounded-xl">
+                                        <button type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white/80 px-3 py-1 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
+                                            {{ $page.props.auth.user.name }}
+                                        </button>
+                                    </span>
+                                </template>
 
-                            <template #content>
-                                <DropdownLink :href="route('profile.edit')">Profile</DropdownLink>
-                                <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none">Log Out</button>
-                            </template>
-                        </Dropdown>
+                                <template #content>
+                                    <DropdownLink :href="route('profile.edit')">Profile</DropdownLink>
+                                    <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none dark:text-slate-300 dark:hover:bg-slate-800">Log Out</button>
+                                </template>
+                            </Dropdown>
+                        </div>
                     </div>
 
-                    <div class="fixed left-0 right-0 top-0 z-20 hidden h-20 items-center justify-between border-b border-slate-200/70 bg-white/70 px-8 backdrop-blur lg:flex lg:left-72">
+                    <div class="fixed left-0 right-0 top-0 z-20 hidden h-20 items-center justify-between border-b border-slate-200/70 bg-white/70 px-8 backdrop-blur dark:border-slate-700/50 dark:bg-slate-900/90 lg:flex lg:left-72">
                         <div class="flex items-center gap-3">
                             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white" style="font-family: 'Space Grotesk', sans-serif;">
                                 {{ $page.props.auth.user.name?.charAt(0)?.toUpperCase() ?? '?' }}
                             </div>
                             <div>
-                                <div class="text-sm font-semibold text-slate-900">{{ $page.props.auth.user.name }}</div>
-                                <div class="mt-0.5 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                                <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ $page.props.auth.user.name }}</div>
+                                <div class="mt-0.5 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                                     <i class="fa-solid fa-circle-user text-[9px]"></i>
                                     {{ $page.props.auth.user.role ?? 'user' }}
                                 </div>
                             </div>
                         </div>
-                        <Dropdown align="right" width="48" contentClasses="py-2 bg-white/95">
-                            <template #trigger>
-                                <span class="inline-flex rounded-xl">
-                                    <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white">
-                                        <i class="fa-solid fa-user-gear text-sm text-slate-500"></i>
-                                        Account
-                                        <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
-                                    </button>
-                                </span>
-                            </template>
+                        <div class="flex items-center gap-3">
+                            <button
+                                type="button"
+                                @click="toggleDarkMode"
+                                :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+                                class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:text-slate-200"
+                            >
+                                <i :class="darkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" class="text-base"></i>
+                            </button>
+                            <Dropdown align="right" width="48" contentClasses="py-2 bg-white/95">
+                                <template #trigger>
+                                    <span class="inline-flex rounded-xl">
+                                        <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800">
+                                            <i class="fa-solid fa-user-gear text-sm text-slate-500 dark:text-slate-400"></i>
+                                            Account
+                                            <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+                                        </button>
+                                    </span>
+                                </template>
 
-                            <template #content>
-                                <DropdownLink :href="route('profile.edit')">
-                                    <i class="fa-regular fa-user mr-2 text-slate-400"></i>Profile
-                                </DropdownLink>
-                                <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none">
-                                    <i class="fa-solid fa-arrow-right-from-bracket mr-2 text-slate-400"></i>Log Out
-                                </button>
-                            </template>
-                        </Dropdown>
+                                <template #content>
+                                    <DropdownLink :href="route('profile.edit')">
+                                        <i class="fa-regular fa-user mr-2 text-slate-400"></i>Profile
+                                    </DropdownLink>
+                                    <button type="button" @click="showLogoutConfirm = true" class="block w-full px-4 py-2 text-left text-sm leading-5 text-slate-700 hover:bg-slate-100 focus:outline-none dark:text-slate-300 dark:hover:bg-slate-800">
+                                        <i class="fa-solid fa-arrow-right-from-bracket mr-2 text-slate-400"></i>Log Out
+                                    </button>
+                                </template>
+                            </Dropdown>
+                        </div>
                     </div>
 
                     <main class="flex-1 overflow-y-auto px-6 pb-8 pt-20 lg:px-10 lg:pt-24">
                         <div class="mx-auto w-full max-w-6xl">
-                            <div v-if="$slots.header" class="mb-6 rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-sm">
+                            <div v-if="$slots.header" class="mb-6 rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
                                 <slot name="header" />
                             </div>
 
@@ -702,20 +957,20 @@ onUnmounted(() => {
                 <div
                     v-for="toast in toasts"
                     :key="toast.id"
-                    class="overflow-hidden rounded-2xl border bg-white shadow-lg"
+                    class="overflow-hidden rounded-2xl border bg-white shadow-lg dark:bg-slate-900"
                     :class="{
-                        'border-emerald-200': toast.type === 'success',
-                        'border-rose-200': toast.type === 'error',
-                        'border-slate-200': toast.type === 'info',
+                        'border-emerald-200 dark:border-emerald-700/40': toast.type === 'success',
+                        'border-rose-200 dark:border-rose-700/40': toast.type === 'error',
+                        'border-slate-200 dark:border-slate-700/60': toast.type === 'info',
                     }"
                 >
                     <div class="flex items-start gap-3 px-4 py-3">
                         <span
                             class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs"
                             :class="{
-                                'bg-emerald-100 text-emerald-600': toast.type === 'success',
-                                'bg-rose-100 text-rose-600': toast.type === 'error',
-                                'bg-sky-100 text-sky-600': toast.type === 'info',
+                                'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300': toast.type === 'success',
+                                'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300': toast.type === 'error',
+                                'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300': toast.type === 'info',
                             }"
                         >
                             <i
@@ -730,20 +985,29 @@ onUnmounted(() => {
                             <div
                                 class="text-xs font-bold uppercase tracking-widest"
                                 :class="{
-                                    'text-emerald-700': toast.type === 'success',
-                                    'text-rose-700': toast.type === 'error',
-                                    'text-sky-700': toast.type === 'info',
+                                    'text-emerald-700 dark:text-emerald-300': toast.type === 'success',
+                                    'text-rose-700 dark:text-rose-300': toast.type === 'error',
+                                    'text-sky-700 dark:text-sky-300': toast.type === 'info',
                                 }"
                             >{{ toast.type }}</div>
-                            <div class="mt-0.5 text-sm text-slate-700">{{ toast.message }}</div>
+                            <div class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ toast.message }}</div>
                         </div>
+                        <button
+                            type="button"
+                            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                            aria-label="Dismiss notification"
+                            title="Dismiss notification"
+                            @click="removeToast(toast.id)"
+                        >
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
                     </div>
                     <div
                         class="h-1"
                         :class="{
-                            'bg-emerald-100': toast.type === 'success',
-                            'bg-rose-100': toast.type === 'error',
-                            'bg-sky-100': toast.type === 'info',
+                            'bg-emerald-100 dark:bg-emerald-900/35': toast.type === 'success',
+                            'bg-rose-100 dark:bg-rose-900/35': toast.type === 'error',
+                            'bg-sky-100 dark:bg-sky-900/35': toast.type === 'info',
                         }"
                     >
                         <div
@@ -762,15 +1026,15 @@ onUnmounted(() => {
 
             <div v-if="showingNavigationDropdown" class="fixed inset-0 z-40 lg:hidden">
                 <div class="absolute inset-0 bg-slate-900/40" @click="showingNavigationDropdown = false"></div>
-                <div class="relative h-full w-72 bg-white/95 shadow-2xl">
-                    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+                <div class="relative mobile-nav h-full w-72 bg-white/95 shadow-2xl dark:bg-slate-900">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700">
                         <Link :href="route('dashboard')" class="flex items-center gap-2" @click="showingNavigationDropdown = false">
                             <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
                                 <ApplicationLogo class="h-5 w-5 fill-current" />
                             </div>
-                            <span class="text-sm font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</span>
+                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100" style="font-family: 'Space Grotesk', sans-serif;">OJT Tracker</span>
                         </Link>
-                        <button @click="showingNavigationDropdown = false" class="rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900">
+                        <button @click="showingNavigationDropdown = false" class="rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
                             <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
@@ -780,15 +1044,33 @@ onUnmounted(() => {
                             <div class="relative">
                                 <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
                                 <input
+                                    ref="mobileSidebarSearchInputRef"
                                     v-model="sidebarQuery"
                                     type="search"
-                                    placeholder="Quick switch"
-                                    class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400"
+                                    :placeholder="quickSwitchPlaceholder"
+                                    class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-9 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-500"
+                                    @keydown.esc.prevent="showingNavigationDropdown = false"
                                 />
+                                <button
+                                    v-if="sidebarQuery"
+                                    type="button"
+                                    class="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                                    aria-label="Clear sidebar search"
+                                    title="Clear search"
+                                    @click="clearSidebarSearch"
+                                >
+                                    <i class="fa-solid fa-xmark text-[11px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="sidebarQuery && !hasSidebarMatches" class="mb-4 rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                            <div class="flex items-center justify-between gap-2">
+                                <span>No menu match for "{{ sidebarQuery }}"</span>
+                                <button type="button" class="font-semibold text-emerald-600 hover:text-emerald-500" @click="clearSidebarSearch">Clear</button>
                             </div>
                         </div>
                         <div :class="isCompact ? 'space-y-1 text-[13px]' : 'space-y-2 text-sm'">
-                        <div v-show="groupVisible(['Dashboard', 'Placements', 'All Placements', 'New Placement', 'Request Placement', 'Attendance', 'Reports', 'Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report', 'Evaluations', 'All Evaluations', 'New Evaluation', 'Documents', 'All Documents', 'Upload Document'])" class="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        <div v-show="groupVisible(['Dashboard', 'Placements', 'All Placements', 'New Placement', 'Request Placement', 'Attendance', 'DTR Generator', 'Reports', 'Daily Reports', 'New Daily Report', 'Weekly Reports', 'New Weekly Report', 'Evaluations', 'All Evaluations', 'New Evaluation', 'Documents', 'All Documents', 'Upload Document'])" class="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                             Core
                         </div>
                         <ResponsiveNavLink v-show="matchesLabel('Dashboard')" :href="route('dashboard')" :active="route().current('dashboard')" @click="showingNavigationDropdown = false">
@@ -803,15 +1085,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isPlacementsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="placementsOpen = !placementsOpen"
-                                :title="placementsOpen || isPlacementsActive ? '' : 'All Placements, New Placement'"
+                                :title="placementsExpanded ? '' : 'All Placements, New Placement'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-solid fa-briefcase text-base"></i>
                                 </span>
                                 <span class="flex-1">Placements</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="placementsOpen || isPlacementsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="placementsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="placementsOpen || isPlacementsActive" class="ml-12 space-y-2">
+                            <div v-show="placementsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Placements')" :href="route('placements.index')" :active="route().current('placements.index')" @click="showingNavigationDropdown = false" :class="route().current('placements.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -844,15 +1126,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isDailyReportsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="dailyReportsOpen = !dailyReportsOpen"
-                                :title="dailyReportsOpen || isDailyReportsActive ? '' : 'Daily Reports, Weekly Reports'"
+                                :title="dailyReportsExpanded ? '' : 'Daily Reports, Weekly Reports'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-clipboard text-base"></i>
                                 </span>
                                 <span class="flex-1">Reports</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="dailyReportsOpen || isDailyReportsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="dailyReportsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="dailyReportsOpen || isDailyReportsActive" class="ml-12 space-y-2">
+                            <div v-show="dailyReportsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('Daily Reports')" :href="route('daily-reports.index')" :active="route().current('daily-reports.index')" @click="showingNavigationDropdown = false" :class="route().current('daily-reports.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -885,15 +1167,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isEvaluationsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="evaluationsOpen = !evaluationsOpen"
-                                :title="evaluationsOpen || isEvaluationsActive ? '' : 'All Evaluations, New Evaluation'"
+                                :title="evaluationsExpanded ? '' : 'All Evaluations, New Evaluation'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-star text-base"></i>
                                 </span>
                                 <span class="flex-1">Evaluations</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="evaluationsOpen || isEvaluationsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="evaluationsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="evaluationsOpen || isEvaluationsActive" class="ml-12 space-y-2">
+                            <div v-show="evaluationsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Evaluations')" :href="route('evaluations.index')" :active="route().current('evaluations.index')" @click="showingNavigationDropdown = false" :class="route().current('evaluations.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -914,15 +1196,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isDocumentsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="documentsOpen = !documentsOpen"
-                                :title="documentsOpen || isDocumentsActive ? '' : 'All Documents, Upload Document'"
+                                :title="documentsExpanded ? '' : 'All Documents, Upload Document'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-file-lines text-base"></i>
                                 </span>
                                 <span class="flex-1">Documents</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="documentsOpen || isDocumentsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="documentsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="documentsOpen || isDocumentsActive" class="ml-12 space-y-2">
+                            <div v-show="documentsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Documents')" :href="route('documents.index')" :active="route().current('documents.index')" @click="showingNavigationDropdown = false" :class="route().current('documents.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -961,15 +1243,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isUsersActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="usersOpen = !usersOpen"
-                                :title="usersOpen || isUsersActive ? '' : 'All Users, New User'"
+                                :title="usersExpanded ? '' : 'All Users, New User'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-user text-base"></i>
                                 </span>
                                 <span class="flex-1">Users</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="usersOpen || isUsersActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="usersExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="usersOpen || isUsersActive" class="ml-12 space-y-2">
+                            <div v-show="usersExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Users')" :href="route('users.index')" :active="route().current('users.index')" @click="showingNavigationDropdown = false" :class="route().current('users.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -990,15 +1272,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isStudentsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="studentsOpen = !studentsOpen"
-                                :title="studentsOpen || isStudentsActive ? '' : 'All Students, New Student'"
+                                :title="studentsExpanded ? '' : 'All Students, New Student'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-solid fa-graduation-cap text-base"></i>
                                 </span>
                                 <span class="flex-1">Students</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="studentsOpen || isStudentsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="studentsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="studentsOpen || isStudentsActive" class="ml-12 space-y-2">
+                            <div v-show="studentsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Students')" :href="route('students.index')" :active="route().current('students.index')" @click="showingNavigationDropdown = false" :class="route().current('students.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -1019,15 +1301,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isCompaniesActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="companiesOpen = !companiesOpen"
-                                :title="companiesOpen || isCompaniesActive ? '' : 'All Companies, New Company'"
+                                :title="companiesExpanded ? '' : 'All Companies, New Company'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-building text-base"></i>
                                 </span>
                                 <span class="flex-1">Companies</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="companiesOpen || isCompaniesActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="companiesExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="companiesOpen || isCompaniesActive" class="ml-12 space-y-2">
+                            <div v-show="companiesExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Companies')" :href="route('companies.index')" :active="route().current('companies.index')" @click="showingNavigationDropdown = false" :class="route().current('companies.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -1048,15 +1330,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isBatchesActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="batchesOpen = !batchesOpen"
-                                :title="batchesOpen || isBatchesActive ? '' : 'All Batches, New Batch'"
+                                :title="batchesExpanded ? '' : 'All Batches, New Batch'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-calendar text-base"></i>
                                 </span>
                                 <span class="flex-1">Batches</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="batchesOpen || isBatchesActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="batchesExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="batchesOpen || isBatchesActive" class="ml-12 space-y-2">
+                            <div v-show="batchesExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Batches')" :href="route('batches.index')" :active="route().current('batches.index')" @click="showingNavigationDropdown = false" :class="route().current('batches.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>
@@ -1077,15 +1359,15 @@ onUnmounted(() => {
                                 class="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-start text-sm font-medium transition hover:bg-white/70 hover:text-slate-900"
                                 :class="isSupervisorsActive ? 'bg-white/90 text-slate-900 shadow-sm ring-1 ring-emerald-200/70 border-l-2 border-emerald-500 pl-3' : 'text-slate-600'"
                                 @click="supervisorsOpen = !supervisorsOpen"
-                                :title="supervisorsOpen || isSupervisorsActive ? '' : 'All Supervisors, New Supervisor'"
+                                :title="supervisorsExpanded ? '' : 'All Supervisors, New Supervisor'"
                             >
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-id-badge text-base"></i>
                                 </span>
                                 <span class="flex-1">Supervisors</span>
-                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="supervisorsOpen || isSupervisorsActive ? 'rotate-180' : ''"></i>
+                                <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition" :class="supervisorsExpanded ? 'rotate-180' : ''"></i>
                             </button>
-                            <div v-show="supervisorsOpen || isSupervisorsActive" class="ml-12 space-y-2">
+                            <div v-show="supervisorsExpanded" class="ml-12 space-y-2">
                                 <ResponsiveNavLink v-show="matchesLabel('All Supervisors')" :href="route('supervisors.index')" :active="route().current('supervisors.index')" @click="showingNavigationDropdown = false" :class="route().current('supervisors.index') ? 'border-l-2 border-emerald-500 pl-2' : ''">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                                         <i class="fa-solid fa-list text-xs"></i>

@@ -45,10 +45,11 @@ const processDay = (day) => {
 
 const processedDays = computed(() => (dtr.value?.days ?? []).map(processDay));
 
-// Format Date object → HH:MM (24-hr, for the DTR table cells)
+// Format Date object → hh:mm (12-hr) for DTR table cells
 const fmt = (d) => {
     if (!d) return '';
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const hour12 = d.getHours() % 12 || 12;
+    return `${String(hour12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
 
 const generate = async () => {
