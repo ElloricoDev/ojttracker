@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   getStudentAttendance,
   getStudentPlacement,
@@ -12,8 +13,11 @@ import KeyValueRow from '../components/KeyValueRow';
 import LoadMoreButton from '../components/LoadMoreButton';
 import StatusBadge from '../components/StatusBadge';
 import StudentScreenLayout from '../components/StudentScreenLayout';
+import { useToast } from '../components/ToastProvider';
 import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
+import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 import type { Placement } from '../types/student';
 import { getApiErrorMessage } from '../utils/errors';
 import { formatDate, formatDateTime, formatMinutes } from '../utils/formatters';
@@ -21,6 +25,10 @@ import { formatDate, formatDateTime, formatMinutes } from '../utils/formatters';
 type AttendanceAction = 'time_in' | 'time_out';
 
 export default function AttendanceScreen() {
+  const { s } = useResponsive();
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
+  const toast = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
   const [placementError, setPlacementError] = useState<string | null>(null);
@@ -98,16 +106,18 @@ export default function AttendanceScreen() {
         if (action === 'time_in') {
           await submitStudentAttendanceTimeIn({ placement_id: placement.id });
           setAttendanceActionSuccess('Time in logged successfully.');
+          toast.show({ type: 'success', title: 'Time in', message: 'Attendance recorded.' });
         } else {
           await submitStudentAttendanceTimeOut({ placement_id: placement.id });
           setAttendanceActionSuccess('Time out logged successfully.');
+          toast.show({ type: 'success', title: 'Time out', message: 'Attendance recorded.' });
         }
 
         reload();
       } catch (actionError) {
-        setAttendanceActionError(
-          getApiErrorMessage(actionError, 'Unable to submit attendance action right now.')
-        );
+        const message = getApiErrorMessage(actionError, 'Unable to submit attendance action right now.');
+        setAttendanceActionError(message);
+        toast.show({ type: 'error', title: 'Action failed', message });
       } finally {
         setActiveAction(null);
       }
@@ -119,10 +129,15 @@ export default function AttendanceScreen() {
     <StudentScreenLayout
       title="Attendance"
       subtitle="Daily attendance logs from your placement."
+      headerIconName="calendar-check-outline"
       refreshing={isRefreshing || isPlacementRefreshing}
       onRefresh={refreshAll}
     >
-      <DataCard title="Attendance actions">
+      <DataCard
+        title="Attendance actions"
+        subtitle="Log your daily time-in and time-out."
+        icon={<MaterialCommunityIcons name="calendar-check" size={16} color="#1D4ED8" />}
+      >
         {isPlacementLoading ? (
           <View style={styles.inlineLoading}>
             <ActivityIndicator size="small" color={appTheme.colors.primary} />
@@ -140,27 +155,53 @@ export default function AttendanceScreen() {
           <View style={styles.actionBlock}>
             <KeyValueRow label="Current Placement" value={placement.company?.name ?? `#${placement.id}`} />
             <View style={styles.buttonGroup}>
-              <Button
-                title={activeAction === 'time_in' ? 'Logging time in...' : 'Time In'}
+              <Pressable
                 onPress={() => {
                   void handleAttendanceAction('time_in');
                 }}
                 disabled={activeAction !== null}
-              />
-              <Button
-                title={activeAction === 'time_out' ? 'Logging time out...' : 'Time Out'}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.timeInButton,
+                  pressed && styles.actionButtonPressed,
+                  activeAction !== null && styles.actionButtonDisabled,
+                ]}
+              >
+                {activeAction === 'time_in' ? (
+                  <ActivityIndicator size="small" color="#0F172A" />
+                ) : (
+                  <MaterialCommunityIcons name="login" size={16} color="#0F172A" />
+                )}
+                <Text style={styles.actionButtonText}>
+                  {activeAction === 'time_in' ? 'Logging time in...' : 'Time In'}
+                </Text>
+              </Pressable>
+              <Pressable
                 onPress={() => {
                   void handleAttendanceAction('time_out');
                 }}
                 disabled={activeAction !== null}
-              />
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.timeOutButton,
+                  pressed && styles.actionButtonPressed,
+                  activeAction !== null && styles.actionButtonDisabled,
+                ]}
+              >
+                {activeAction === 'time_out' ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name="logout" size={16} color="#fff" />
+                )}
+                <Text style={[styles.actionButtonText, styles.timeOutButtonText]}>
+                  {activeAction === 'time_out' ? 'Logging time out...' : 'Time Out'}
+                </Text>
+              </Pressable>
             </View>
           </View>
         )}
 
         {placementError ? <Text style={styles.errorText}>{placementError}</Text> : null}
-        {attendanceActionError ? <Text style={styles.errorText}>{attendanceActionError}</Text> : null}
-        {attendanceActionSuccess ? <Text style={styles.successText}>{attendanceActionSuccess}</Text> : null}
       </DataCard>
 
       {isLoading && attendanceLogs.length === 0 ? (
@@ -249,66 +290,98 @@ export default function AttendanceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
+  StyleSheet.create({
   placeholderText: {
-    fontSize: 14,
-    color: appTheme.colors.mutedText,
+    fontSize: s(14),
+    color: colors.mutedText,
     lineHeight: 20,
   },
   inlineLoading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appTheme.spacing.sm,
+    gap: s(appTheme.spacing.sm),
   },
   actionBlock: {
-    gap: appTheme.spacing.sm,
+    gap: s(appTheme.spacing.sm),
   },
   buttonGroup: {
-    gap: appTheme.spacing.sm,
+    gap: s(appTheme.spacing.sm),
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(appTheme.spacing.xs),
+    borderRadius: s(12),
+    paddingVertical: s(appTheme.spacing.sm),
+    paddingHorizontal: s(appTheme.spacing.md),
+  },
+  actionButtonPressed: {
+    opacity: 0.88,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  timeInButton: {
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  timeOutButton: {
+    backgroundColor: colors.primary,
+  },
+  actionButtonText: {
+    fontSize: s(13),
+    fontWeight: '700',
+    color: colors.text,
+  },
+  timeOutButtonText: {
+    color: '#fff',
   },
   errorText: {
     color: '#B91C1C',
     backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
+    borderRadius: s(10),
+    padding: s(appTheme.spacing.sm),
   },
   successText: {
     color: '#065F46',
     backgroundColor: '#D1FAE5',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
+    borderRadius: s(10),
+    padding: s(appTheme.spacing.sm),
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: appTheme.spacing.sm,
+    gap: s(appTheme.spacing.sm),
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: s(16),
     fontWeight: '700',
-    color: appTheme.colors.text,
+    color: colors.text,
   },
   expandHint: {
-    color: appTheme.colors.primary,
-    fontSize: 12,
+    color: colors.primary,
+    fontSize: s(12),
     fontWeight: '600',
   },
   details: {
-    marginTop: appTheme.spacing.xs,
+    marginTop: s(appTheme.spacing.xs),
     borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
+    borderTopColor: colors.border,
+    paddingTop: s(appTheme.spacing.sm),
+    gap: s(appTheme.spacing.xs),
   },
   detailLabel: {
-    fontSize: 13,
-    color: appTheme.colors.mutedText,
+    fontSize: s(13),
+    color: colors.mutedText,
     fontWeight: '600',
   },
   detailValue: {
-    fontSize: 13,
-    color: appTheme.colors.text,
+    fontSize: s(13),
+    color: colors.text,
     lineHeight: 20,
   },
 });

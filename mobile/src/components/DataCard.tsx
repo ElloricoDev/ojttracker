@@ -2,6 +2,7 @@ import { PropsWithChildren, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 
 type DataCardProps = PropsWithChildren<{
   title?: string;
@@ -12,7 +13,8 @@ type DataCardProps = PropsWithChildren<{
 
 export default function DataCard({ children, title, subtitle, icon, onPress }: DataCardProps) {
   const { s } = useResponsive();
-  const styles = getStyles(s);
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
 
   return (
     <Pressable
@@ -32,13 +34,13 @@ export default function DataCard({ children, title, subtitle, icon, onPress }: D
   );
 }
 
-const getStyles = (s: (value: number) => number) =>
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
   StyleSheet.create({
   card: {
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     padding: s(appTheme.spacing.md),
     gap: s(appTheme.spacing.sm),
   },
@@ -56,16 +58,16 @@ const getStyles = (s: (value: number) => number) =>
     borderRadius: s(14),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DBEAFE',
+    backgroundColor: colors.primaryLight,
   },
   title: {
     fontSize: s(16),
     fontWeight: '700',
-    color: appTheme.colors.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: s(13),
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
   },
   body: {
     gap: s(appTheme.spacing.xs),

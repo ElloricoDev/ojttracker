@@ -9,11 +9,13 @@ use App\Models\Company;
 use App\Models\DailyReport;
 use App\Models\Document;
 use App\Models\Evaluation;
+use App\Models\Notification;
 use App\Models\OjtBatch;
 use App\Models\Placement;
 use App\Models\Student;
 use App\Models\Supervisor;
 use App\Models\User;
+use App\Models\WeeklyReport;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -78,6 +80,10 @@ class DatabaseSeeder extends Seeder
                 ]);
             }
 
+            WeeklyReport::factory()->count(2)->create([
+                'placement_id' => $placement->id,
+            ]);
+
             Evaluation::factory()->count(2)->create([
                 'placement_id' => $placement->id,
                 'evaluator_id' => $advisers->random()->user_id,
@@ -86,6 +92,16 @@ class DatabaseSeeder extends Seeder
 
             Document::factory()->count(2)->create([
                 'placement_id' => $placement->id,
+            ]);
+
+            Notification::factory()->count(2)->create([
+                'user_id' => $student->user_id,
+                'read_at' => null,
+            ]);
+
+            Notification::factory()->count(1)->create([
+                'user_id' => $student->user_id,
+                'read_at' => now()->subDays(2),
             ]);
         }
     }

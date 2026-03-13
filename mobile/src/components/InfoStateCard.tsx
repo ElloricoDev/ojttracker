@@ -2,6 +2,7 @@ import { Button, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 
 type InfoStateCardTone = 'neutral' | 'error';
 
@@ -21,9 +22,10 @@ export default function InfoStateCard({
   onActionPress,
 }: InfoStateCardProps) {
   const { s } = useResponsive();
-  const styles = getStyles(s);
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
   const iconName = tone === 'error' ? 'alert-circle-outline' : 'information-outline';
-  const iconColor = tone === 'error' ? '#B91C1C' : '#1D4ED8';
+  const iconColor = tone === 'error' ? colors.error : colors.info;
 
   return (
     <View style={[styles.card, tone === 'error' ? styles.errorCard : styles.neutralCard]}>
@@ -37,7 +39,7 @@ export default function InfoStateCard({
   );
 }
 
-const getStyles = (s: (value: number) => number) =>
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
   StyleSheet.create({
   card: {
     borderRadius: s(12),
@@ -51,26 +53,26 @@ const getStyles = (s: (value: number) => number) =>
     gap: s(appTheme.spacing.xs + 2),
   },
   neutralCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: colors.infoLight,
+    borderColor: colors.info,
   },
   errorCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: colors.errorLight,
+    borderColor: colors.error,
   },
   title: {
     fontSize: s(16),
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: colors.infoText,
   },
   errorTitle: {
-    color: '#B91C1C',
+    color: colors.errorText,
   },
   message: {
-    color: '#1E40AF',
+    color: colors.infoText,
     fontSize: s(14),
   },
   errorMessage: {
-    color: '#7F1D1D',
+    color: colors.errorText,
   },
 });

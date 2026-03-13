@@ -11,6 +11,7 @@ import {
 import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 
 type ScreenContainerProps = PropsWithChildren<{
   /** Optional custom background color */
@@ -23,6 +24,8 @@ type ScreenContainerProps = PropsWithChildren<{
   containerStyle?: StyleProp<ViewStyle>;
   /** If false, removes default padding. Default true */
   withPadding?: boolean;
+  /** If false, removes safe-area bottom inset padding. Default true */
+  withBottomInset?: boolean;
   /** If true, wraps content in ScrollView. Default false */
   scroll?: boolean;
   /** If true, enables KeyboardAvoidingView on iOS. Default true */
@@ -38,17 +41,20 @@ export default function ScreenContainer({
   style,
   containerStyle,
   withPadding = true,
+  withBottomInset = true,
   scroll = false,
   keyboardAvoiding = true,
   keyboardVerticalOffset = 0,
 }: ScreenContainerProps) {
   const { s } = useResponsive();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const styles = getStyles(s);
+  const bottomInset = withBottomInset ? insets.bottom : 0;
   const contentStyles = [
     styles.content,
     !withPadding && styles.noPadding,
-    { paddingBottom: insets.bottom },
+    { paddingBottom: bottomInset },
     style,
   ];
 
@@ -57,7 +63,11 @@ export default function ScreenContainer({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[...contentStyles, styles.scrollContent, { paddingBottom: insets.bottom }]}
+      contentContainerStyle={[
+        ...contentStyles,
+        styles.scrollContent,
+        { paddingBottom: bottomInset },
+      ]}
     >
       {children}
     </ScrollView>
@@ -83,6 +93,7 @@ export default function ScreenContainer({
       style={[
         styles.safeArea,
         backgroundColor ? { backgroundColor } : undefined,
+        { backgroundColor: backgroundColor ?? colors.background },
         containerStyle
       ]}
       edges={edges}

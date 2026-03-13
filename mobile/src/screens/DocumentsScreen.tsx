@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   getStudentDocuments,
@@ -12,8 +13,11 @@ import KeyValueRow from '../components/KeyValueRow';
 import LoadMoreButton from '../components/LoadMoreButton';
 import StatusBadge from '../components/StatusBadge';
 import StudentScreenLayout from '../components/StudentScreenLayout';
+import { useToast } from '../components/ToastProvider';
 import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
+import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDateTime } from '../utils/formatters';
@@ -85,6 +89,10 @@ function formatFileSize(sizeInBytes: number | null): string {
 }
 
 export default function DocumentsScreen() {
+  const toast = useToast();
+  const { s } = useResponsive();
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
   const [placementError, setPlacementError] = useState<string | null>(null);
@@ -180,7 +188,9 @@ export default function DocumentsScreen() {
       });
       setFormErrors((current) => ({ ...current, document_file: undefined }));
     } catch (filePickerError) {
-      setUploadError(getApiErrorMessage(filePickerError, 'Unable to open file picker right now.'));
+      const message = getApiErrorMessage(filePickerError, 'Unable to open file picker right now.');
+      setUploadError(message);
+      toast.show({ type: 'error', title: 'File picker', message });
     } finally {
       setIsPickingFile(false);
     }
@@ -234,6 +244,7 @@ export default function DocumentsScreen() {
       });
 
       setUploadSuccess('Document uploaded successfully.');
+      toast.show({ type: 'success', title: 'Uploaded', message: 'Document uploaded successfully.' });
       setDocumentTypeInput('');
       setSelectedFile(null);
       setFormErrors({});
@@ -245,7 +256,9 @@ export default function DocumentsScreen() {
         document_type: apiValidationErrors.document_type?.[0],
         document_file: apiValidationErrors.document_file?.[0],
       });
-      setUploadError(getApiErrorMessage(uploadRequestError, 'Unable to upload document right now.'));
+      const message = getApiErrorMessage(uploadRequestError, 'Unable to upload document right now.');
+      setUploadError(message);
+      toast.show({ type: 'error', title: 'Upload failed', message });
     } finally {
       setIsUploading(false);
     }
@@ -255,10 +268,15 @@ export default function DocumentsScreen() {
     <StudentScreenLayout
       title="Documents"
       subtitle="Submit required files and review verification updates."
+      headerIconName="file-document-outline"
       refreshing={isRefreshing || isPlacementRefreshing}
       onRefresh={refreshAll}
     >
-      <DataCard title="Upload document">
+      <DataCard
+        title="Upload document"
+        subtitle="Send your required files for verification."
+        icon={<MaterialCommunityIcons name="file-upload-outline" size={16} color="#1D4ED8" />}
+      >
         {isPlacementLoading ? (
           <View style={styles.inlineLoading}>
             <ActivityIndicator size="small" color={appTheme.colors.primary} />
@@ -271,16 +289,29 @@ export default function DocumentsScreen() {
           />
         )}
 
-        <Text style={styles.formHint}>Accepted formats: PDF, JPG, JPEG, PNG (max 5MB).</Text>
+        <View style={styles.formHint}>
+          <View style={styles.hintBadge}>
+            <MaterialCommunityIcons name="check-circle-outline" size={12} color="#1D4ED8" />
+            <Text style={styles.hintBadgeText}>PDF, JPG, PNG</Text>
+          </View>
+          <Text style={styles.formHintText}>Max 5MB per upload.</Text>
+        </View>
         {formErrors.placement_id ? <Text style={styles.fieldError}>{formErrors.placement_id}</Text> : null}
         {placementError ? <Text style={styles.errorText}>{placementError}</Text> : null}
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Document Type *</Text>
+          <View style={styles.labelRow}>
+            <View style={styles.labelIcon}>
+              <MaterialCommunityIcons name="file-document-outline" size={14} color="#1D4ED8" />
+            </View>
+            <Text style={styles.label}>Document Type</Text>
+            <Text style={styles.requiredTag}>Required</Text>
+          </View>
           <TextInput
             editable={!isUploading}
             placeholder="e.g. Weekly Evaluation"
             style={styles.input}
+            placeholderTextColor={appTheme.colors.subtleText}
             value={documentTypeInput}
             onChangeText={(value) => {
               setDocumentTypeInput(value);
@@ -291,45 +322,79 @@ export default function DocumentsScreen() {
         </View>
 
         <View style={styles.buttonGroup}>
-          <Button
-            title={isPickingFile ? 'Opening picker...' : selectedFile ? 'Change file' : 'Choose file'}
+          <Pressable
             onPress={() => {
               void handlePickFile();
             }}
             disabled={isPickingFile || isUploading}
-          />
+            style={({ pressed }) => [
+              styles.actionButton,
+              pressed && !isPickingFile ? styles.actionButtonPressed : null,
+              (isPickingFile || isUploading) && styles.actionButtonDisabled,
+            ]}
+          >
+            <MaterialCommunityIcons name="folder-open-outline" size={16} color="#1D4ED8" />
+            <Text style={styles.actionButtonText}>
+              {isPickingFile ? 'Opening picker...' : selectedFile ? 'Change file' : 'Choose file'}
+            </Text>
+          </Pressable>
           {selectedFile ? (
-            <Button
-              title="Clear file"
+            <Pressable
               onPress={() => {
                 setSelectedFile(null);
               }}
               disabled={isUploading || isPickingFile}
-            />
+              style={({ pressed }) => [
+                styles.clearButton,
+                pressed && !isUploading ? styles.actionButtonPressed : null,
+                (isPickingFile || isUploading) && styles.actionButtonDisabled,
+              ]}
+            >
+              <MaterialCommunityIcons name="close-circle-outline" size={16} color="#B91C1C" />
+              <Text style={styles.clearButtonText}>Clear file</Text>
+            </Pressable>
           ) : null}
         </View>
 
         {selectedFile ? (
           <View style={styles.selectedFileCard}>
-            <Text style={styles.selectedFileName}>{selectedFile.name}</Text>
-            <Text style={styles.selectedFileMeta}>
-              {selectedFile.mimeType ?? inferMimeType(selectedFile.name) ?? 'Unknown type'} •{' '}
-              {formatFileSize(selectedFile.size)}
-            </Text>
+            <View style={styles.selectedFileHeader}>
+              <View style={styles.fileIconBadge}>
+                <MaterialCommunityIcons name="file-check-outline" size={16} color="#1D4ED8" />
+              </View>
+              <View style={styles.selectedFileInfo}>
+                <Text style={styles.selectedFileName}>{selectedFile.name}</Text>
+                <Text style={styles.selectedFileMeta}>
+                  {selectedFile.mimeType ?? inferMimeType(selectedFile.name) ?? 'Unknown type'} •{' '}
+                  {formatFileSize(selectedFile.size)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.fileStatusRow}>
+              <MaterialCommunityIcons name="shield-check-outline" size={14} color="#0F766E" />
+              <Text style={styles.fileStatusText}>Ready to upload</Text>
+            </View>
           </View>
         ) : null}
         {formErrors.document_file ? <Text style={styles.fieldError}>{formErrors.document_file}</Text> : null}
 
-        {uploadError ? <Text style={styles.errorText}>{uploadError}</Text> : null}
-        {uploadSuccess ? <Text style={styles.successText}>{uploadSuccess}</Text> : null}
 
-        <Button
-          title={isUploading ? 'Uploading document...' : 'Upload document'}
+        <Pressable
           onPress={() => {
             void handleUpload();
           }}
           disabled={isUploading || isPickingFile || isPlacementLoading || !placement}
-        />
+          style={({ pressed }) => [
+            styles.submitButton,
+            pressed && !isUploading ? styles.submitButtonPressed : null,
+            (isUploading || isPickingFile || isPlacementLoading || !placement) && styles.submitButtonDisabled,
+          ]}
+        >
+          <MaterialCommunityIcons name="cloud-upload-outline" size={16} color="#FFFFFF" />
+          <Text style={styles.submitButtonText}>
+            {isUploading ? 'Uploading document...' : 'Upload document'}
+          </Text>
+        </Pressable>
       </DataCard>
 
       {isLoading && documents.length === 0 ? (
@@ -417,107 +482,244 @@ export default function DocumentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  placeholderText: {
-    fontSize: 14,
-    color: appTheme.colors.mutedText,
-    lineHeight: 20,
-  },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-  },
-  formHint: {
-    fontSize: 13,
-    color: appTheme.colors.mutedText,
-    lineHeight: 20,
-  },
-  fieldGroup: {
-    gap: appTheme.spacing.xs,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: appTheme.colors.text,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.sm,
-    backgroundColor: appTheme.colors.surface,
-    color: appTheme.colors.text,
-  },
-  buttonGroup: {
-    gap: appTheme.spacing.sm,
-  },
-  selectedFileCard: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
-    backgroundColor: '#F8FAFC',
-  },
-  selectedFileName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: appTheme.colors.text,
-  },
-  selectedFileMeta: {
-    fontSize: 12,
-    color: appTheme.colors.mutedText,
-  },
-  fieldError: {
-    color: '#B91C1C',
-    fontSize: 12,
-  },
-  errorText: {
-    color: '#B91C1C',
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  successText: {
-    color: '#065F46',
-    backgroundColor: '#D1FAE5',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: appTheme.colors.text,
-    flex: 1,
-  },
-  expandHint: {
-    color: appTheme.colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  details: {
-    marginTop: appTheme.spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: appTheme.colors.mutedText,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: appTheme.colors.text,
-    lineHeight: 20,
-  },
-});
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
+  StyleSheet.create({
+    placeholderText: {
+      fontSize: s(14),
+      color: colors.mutedText,
+      lineHeight: s(20),
+    },
+    inlineLoading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    formHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.xs),
+      flexWrap: 'wrap',
+    },
+    hintBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(4),
+      paddingHorizontal: s(8),
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: '#EEF2FF',
+      borderWidth: 1,
+      borderColor: '#C7D2FE',
+    },
+    hintBadgeText: {
+      fontSize: s(11),
+      fontWeight: '600',
+      color: '#1D4ED8',
+    },
+    formHintText: {
+      fontSize: s(12),
+      color: colors.mutedText,
+    },
+    fieldGroup: {
+      gap: s(appTheme.spacing.xs),
+    },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.xs),
+    },
+    labelIcon: {
+      width: s(22),
+      height: s(22),
+      borderRadius: s(8),
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#EEF2FF',
+      borderWidth: 1,
+      borderColor: '#C7D2FE',
+    },
+    label: {
+      fontSize: s(14),
+      fontWeight: '600',
+      color: colors.text,
+    },
+    requiredTag: {
+      fontSize: s(10),
+      fontWeight: '700',
+      color: colors.warningText,
+      backgroundColor: colors.warningLight,
+      paddingHorizontal: s(6),
+      paddingVertical: 2,
+      borderRadius: 999,
+      overflow: 'hidden',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      borderRadius: s(10),
+      paddingHorizontal: s(appTheme.spacing.md),
+      paddingVertical: s(appTheme.spacing.sm),
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: s(14),
+    },
+    buttonGroup: {
+      gap: s(appTheme.spacing.xs),
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      borderWidth: 1,
+      borderColor: colors.primaryRing,
+      backgroundColor: colors.primaryLight,
+    },
+    actionButtonText: {
+      fontSize: s(13),
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    clearButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      borderWidth: 1,
+      borderColor: colors.error,
+      backgroundColor: colors.errorLight,
+    },
+    clearButtonText: {
+      fontSize: s(13),
+      fontWeight: '600',
+      color: colors.errorText,
+    },
+    actionButtonPressed: {
+      opacity: 0.9,
+    },
+    actionButtonDisabled: {
+      opacity: 0.5,
+    },
+    selectedFileCard: {
+      borderWidth: 1,
+      borderColor: colors.primaryRing,
+      borderRadius: s(12),
+      padding: s(appTheme.spacing.sm),
+      gap: s(appTheme.spacing.xs),
+      backgroundColor: colors.primaryLight,
+    },
+    selectedFileHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    fileIconBadge: {
+      width: s(36),
+      height: s(36),
+      borderRadius: s(12),
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primaryRing,
+    },
+    selectedFileInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    selectedFileName: {
+      fontSize: s(13),
+      fontWeight: '600',
+      color: colors.text,
+    },
+    selectedFileMeta: {
+      fontSize: s(12),
+      color: colors.mutedText,
+    },
+    fileStatusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(6),
+    },
+    fileStatusText: {
+      fontSize: s(12),
+      color: colors.success,
+      fontWeight: '600',
+    },
+    fieldError: {
+      color: colors.errorText,
+      fontSize: s(12),
+    },
+    errorText: {
+      color: colors.errorText,
+      backgroundColor: colors.errorLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    successText: {
+      color: colors.successText,
+      backgroundColor: colors.successLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    submitButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      backgroundColor: colors.primary,
+    },
+    submitButtonPressed: {
+      opacity: 0.9,
+    },
+    submitButtonDisabled: {
+      opacity: 0.5,
+    },
+    submitButtonText: {
+      fontSize: s(14),
+      fontWeight: '600',
+      color: colors.surface,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    cardTitle: {
+      fontSize: s(16),
+      fontWeight: '700',
+      color: colors.text,
+      flex: 1,
+    },
+    expandHint: {
+      color: colors.primary,
+      fontSize: s(12),
+      fontWeight: '600',
+    },
+    details: {
+      marginTop: s(appTheme.spacing.xs),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: s(appTheme.spacing.sm),
+      gap: s(appTheme.spacing.xs),
+    },
+    detailLabel: {
+      fontSize: s(13),
+      color: colors.mutedText,
+      fontWeight: '600',
+    },
+    detailValue: {
+      fontSize: s(13),
+      color: colors.text,
+      lineHeight: s(20),
+    },
+  });

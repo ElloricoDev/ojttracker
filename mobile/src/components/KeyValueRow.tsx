@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 
 type KeyValueRowProps = {
   label: string;
@@ -9,7 +10,8 @@ type KeyValueRowProps = {
 
 export default function KeyValueRow({ label, value }: KeyValueRowProps) {
   const { s } = useResponsive();
-  const styles = getStyles(s);
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
 
   return (
     <View style={styles.row}>
@@ -19,7 +21,7 @@ export default function KeyValueRow({ label, value }: KeyValueRowProps) {
   );
 }
 
-const getStyles = (s: (value: number) => number) =>
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
   StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -30,13 +32,13 @@ const getStyles = (s: (value: number) => number) =>
   label: {
     flex: 1,
     fontSize: s(13),
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
     fontWeight: '500',
   },
   value: {
     flex: 1,
     fontSize: s(13),
-    color: appTheme.colors.text,
+    color: colors.text,
     textAlign: 'right',
   },
 });

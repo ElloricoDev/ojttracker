@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   getStudentNotifications,
   getStudentUnreadNotifications,
@@ -12,8 +13,11 @@ import KeyValueRow from '../components/KeyValueRow';
 import LoadMoreButton from '../components/LoadMoreButton';
 import StatusBadge from '../components/StatusBadge';
 import StudentScreenLayout from '../components/StudentScreenLayout';
+import { useToast } from '../components/ToastProvider';
 import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
+import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 import type { StudentNotification } from '../types/student';
 import { getApiErrorMessage } from '../utils/errors';
 import { formatDateTime } from '../utils/formatters';
@@ -27,6 +31,10 @@ function formatMetadata(metadata: StudentNotification['metadata']): string {
 }
 
 export default function NotificationsScreen() {
+  const { s } = useResponsive();
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
+  const toast = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState<StudentNotification[]>([]);
   const [unreadError, setUnreadError] = useState<string | null>(null);
@@ -103,9 +111,12 @@ export default function NotificationsScreen() {
           current.filter((notification) => notification.id !== notificationId)
         );
         setActionSuccess('Notification marked as read.');
+        toast.show({ type: 'success', title: 'Marked read', message: 'Notification updated.' });
         refreshAll();
       } catch (requestError) {
-        setActionError(getApiErrorMessage(requestError, 'Unable to mark notification as read.'));
+        const message = getApiErrorMessage(requestError, 'Unable to mark notification as read.');
+        setActionError(message);
+        toast.show({ type: 'error', title: 'Action failed', message });
       } finally {
         setMarkingNotificationId(null);
       }
@@ -126,9 +137,19 @@ export default function NotificationsScreen() {
           ? `Marked ${result.updated_count} notification(s) as read.`
           : 'All notifications are already read.'
       );
+      toast.show({
+        type: 'success',
+        title: 'All caught up',
+        message:
+          result.updated_count > 0
+            ? 'All notifications marked as read.'
+            : 'All notifications are already read.',
+      });
       refreshAll();
     } catch (requestError) {
-      setActionError(getApiErrorMessage(requestError, 'Unable to mark all notifications as read.'));
+      const message = getApiErrorMessage(requestError, 'Unable to mark all notifications as read.');
+      setActionError(message);
+      toast.show({ type: 'error', title: 'Action failed', message });
     } finally {
       setIsMarkingAll(false);
     }
@@ -138,10 +159,15 @@ export default function NotificationsScreen() {
     <StudentScreenLayout
       title="Notifications"
       subtitle="Recent announcements and reminders."
+      headerIconName="bell-outline"
       refreshing={isRefreshing || isUnreadRefreshing}
       onRefresh={refreshAll}
     >
-      <DataCard title="Unread Notifications">
+      <DataCard
+        title="Unread Notifications"
+        subtitle="Your latest unread reminders."
+        icon={<MaterialCommunityIcons name="bell-outline" size={16} color="#1D4ED8" />}
+      >
         {isUnreadLoading ? (
           <>
             <ActivityIndicator size="small" color={appTheme.colors.primary} />
@@ -162,23 +188,38 @@ export default function NotificationsScreen() {
         ) : (
           unreadNotifications.map((notification) => (
             <View key={`unread-${notification.id}`} style={styles.unreadItem}>
-              <Text style={styles.unreadTitle}>{notification.title}</Text>
+              <View style={styles.unreadHeader}>
+                <View style={styles.unreadDot} />
+                <Text style={styles.unreadTitle}>{notification.title}</Text>
+              </View>
               <Text style={styles.unreadMeta}>{formatDateTime(notification.created_at)}</Text>
             </View>
           ))
         )}
       </DataCard>
 
-      <DataCard title="Notification actions">
-        {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
-        {actionSuccess ? <Text style={styles.successText}>{actionSuccess}</Text> : null}
-        <Button
-          title={isMarkingAll ? 'Marking all as read...' : 'Mark all as read'}
+      <DataCard
+        title="Notification actions"
+        subtitle="Manage unread reminders in one tap."
+        icon={<MaterialCommunityIcons name="check-all" size={16} color="#1D4ED8" />}
+      >
+        <Pressable
           onPress={() => {
             void handleMarkAllRead();
           }}
           disabled={isMarkingAll || markingNotificationId !== null || !hasUnreadNotifications}
-        />
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed && !isMarkingAll ? styles.primaryButtonPressed : null,
+            (isMarkingAll || markingNotificationId !== null || !hasUnreadNotifications) &&
+              styles.primaryButtonDisabled,
+          ]}
+        >
+          <MaterialCommunityIcons name="check-all" size={16} color="#FFFFFF" />
+          <Text style={styles.primaryButtonText}>
+            {isMarkingAll ? 'Marking all as read...' : 'Mark all as read'}
+          </Text>
+        </Pressable>
       </DataCard>
 
       {isLoading && notifications.length === 0 ? (
@@ -237,13 +278,23 @@ export default function NotificationsScreen() {
                 <Text style={styles.notificationBody}>{notification.body}</Text>
                 <KeyValueRow label="Received" value={formatDateTime(notification.created_at)} />
                 {!notification.read_at ? (
-                  <Button
-                    title={isMarkingThisNotification ? 'Marking as read...' : 'Mark as read'}
+                  <Pressable
                     onPress={() => {
                       void handleMarkRead(notification.id);
                     }}
                     disabled={isMarkingAll || markingNotificationId !== null}
-                  />
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && !isMarkingThisNotification ? styles.secondaryButtonPressed : null,
+                      (isMarkingAll || markingNotificationId !== null) &&
+                        styles.secondaryButtonDisabled,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="check" size={14} color="#1D4ED8" />
+                    <Text style={styles.secondaryButtonText}>
+                      {isMarkingThisNotification ? 'Marking as read...' : 'Mark as read'}
+                    </Text>
+                  </Pressable>
                 ) : null}
                 <Text style={styles.expandHint}>
                   {isExpanded ? 'Tap to hide details' : 'Tap to view details'}
@@ -275,76 +326,133 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  placeholderText: {
-    fontSize: 14,
-    color: appTheme.colors.mutedText,
-    lineHeight: 20,
-  },
-  unreadItem: {
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
-  },
-  unreadTitle: {
-    fontSize: 14,
-    color: appTheme.colors.text,
-    fontWeight: '600',
-  },
-  unreadMeta: {
-    fontSize: 12,
-    color: appTheme.colors.mutedText,
-  },
-  errorText: {
-    color: '#B91C1C',
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  successText: {
-    color: '#065F46',
-    backgroundColor: '#D1FAE5',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-  },
-  cardTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
-    color: appTheme.colors.text,
-  },
-  notificationBody: {
-    color: appTheme.colors.text,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  expandHint: {
-    color: appTheme.colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  details: {
-    marginTop: appTheme.spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: appTheme.colors.mutedText,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: appTheme.colors.text,
-    lineHeight: 20,
-  },
-});
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
+  StyleSheet.create({
+    placeholderText: {
+      fontSize: s(14),
+      color: colors.mutedText,
+      lineHeight: s(20),
+    },
+    unreadItem: {
+      borderTopWidth: 1,
+      borderTopColor: appTheme.colors.border,
+      paddingTop: s(appTheme.spacing.sm),
+      gap: s(appTheme.spacing.xs),
+    },
+    unreadHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(8),
+    },
+    unreadDot: {
+      width: s(8),
+      height: s(8),
+      borderRadius: s(4),
+      backgroundColor: colors.primary,
+    },
+    unreadTitle: {
+      fontSize: s(14),
+      color: colors.text,
+      fontWeight: '600',
+      flex: 1,
+    },
+    unreadMeta: {
+      fontSize: s(12),
+      color: colors.mutedText,
+    },
+    errorText: {
+      color: colors.errorText,
+      backgroundColor: colors.errorLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    successText: {
+      color: colors.successText,
+      backgroundColor: colors.successLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    primaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      backgroundColor: colors.primary,
+    },
+    primaryButtonPressed: {
+      opacity: 0.9,
+    },
+    primaryButtonDisabled: {
+      opacity: 0.5,
+    },
+    primaryButtonText: {
+      fontSize: s(14),
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    secondaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      borderWidth: 1,
+      borderColor: colors.primaryRing,
+      backgroundColor: colors.primaryLight,
+    },
+    secondaryButtonPressed: {
+      opacity: 0.9,
+    },
+    secondaryButtonDisabled: {
+      opacity: 0.5,
+    },
+    secondaryButtonText: {
+      fontSize: s(13),
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    cardTitle: {
+      flex: 1,
+      fontSize: s(16),
+      fontWeight: '700',
+      color: colors.text,
+    },
+    notificationBody: {
+      color: colors.text,
+      fontSize: s(14),
+      lineHeight: s(20),
+    },
+    expandHint: {
+      color: colors.primary,
+      fontSize: s(12),
+      fontWeight: '600',
+    },
+    details: {
+      marginTop: s(appTheme.spacing.xs),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: s(appTheme.spacing.sm),
+      gap: s(appTheme.spacing.xs),
+    },
+    detailLabel: {
+      fontSize: s(13),
+      color: colors.mutedText,
+      fontWeight: '600',
+    },
+    detailValue: {
+      fontSize: s(13),
+      color: colors.text,
+      lineHeight: s(20),
+    },
+  });

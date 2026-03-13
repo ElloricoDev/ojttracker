@@ -1,14 +1,14 @@
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
+// removed: import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { STUDENT_ROUTES, type DrawerParamList, type StudentRouteName } from '../navigation/types';
 import { appTheme } from '../theme';
 
-type NavigationProp = DrawerNavigationProp<DrawerParamList>;
+type AppNavigationProp = NavigationProp<DrawerParamList>;
 
 export default function StudentSectionMenu() {
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute();
   const activeRoute = route.name as StudentRouteName;
 

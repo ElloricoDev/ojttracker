@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   getStudentDailyReports,
   getStudentPlacement,
@@ -11,8 +13,11 @@ import KeyValueRow from '../components/KeyValueRow';
 import LoadMoreButton from '../components/LoadMoreButton';
 import StatusBadge from '../components/StatusBadge';
 import StudentScreenLayout from '../components/StudentScreenLayout';
+import { useToast } from '../components/ToastProvider';
 import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
+import { useResponsive } from '../theme/responsive';
+import { useTheme } from '../theme/ThemeProvider';
 import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDate, formatDateTime, formatHours } from '../utils/formatters';
@@ -23,6 +28,11 @@ type DailyReportFormErrors = Partial<
 >;
 
 export default function DailyReportsScreen() {
+  const { s } = useResponsive();
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
+  const toast = useToast();
+  const [showWorkDatePicker, setShowWorkDatePicker] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
   const [placementError, setPlacementError] = useState<string | null>(null);
@@ -132,6 +142,7 @@ export default function DailyReportsScreen() {
       });
 
       setSubmitSuccess('Daily report submitted successfully.');
+      toast.show({ type: 'success', title: 'Submitted', message: 'Daily report submitted.' });
       setAccomplishmentsInput('');
       setHoursRenderedInput('');
       setFormErrors({});
@@ -144,20 +155,37 @@ export default function DailyReportsScreen() {
         accomplishments: apiValidationErrors.accomplishments?.[0],
         hours_rendered: apiValidationErrors.hours_rendered?.[0],
       });
-      setSubmitError(getApiErrorMessage(submissionError, 'Unable to submit daily report right now.'));
+      const message = getApiErrorMessage(submissionError, 'Unable to submit daily report right now.');
+      setSubmitError(message);
+      toast.show({ type: 'error', title: 'Submission failed', message });
     } finally {
       setIsSubmitting(false);
     }
   }, [accomplishmentsInput, hoursRenderedInput, placement?.id, reload, workDateInput]);
 
+  const parseIsoDate = (value: string) => {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  const formatIsoDate = (value: Date) => {
+    const offset = value.getTimezoneOffset() * 60000;
+    return new Date(value.getTime() - offset).toISOString().slice(0, 10);
+  };
+
   return (
     <StudentScreenLayout
       title="Daily Reports"
       subtitle="Submit and review your day-to-day work history."
+      headerIconName="notebook-edit-outline"
       refreshing={isRefreshing || isPlacementRefreshing}
       onRefresh={refreshAll}
     >
-      <DataCard title="Submit daily report">
+      <DataCard
+        title="Submit daily report"
+        subtitle="Capture what you accomplished today."
+        icon={<MaterialCommunityIcons name="clipboard-check-outline" size={16} color="#1D4ED8" />}
+      >
         {isPlacementLoading ? (
           <View style={styles.inlineLoading}>
             <ActivityIndicator size="small" color={appTheme.colors.primary} />
@@ -174,22 +202,73 @@ export default function DailyReportsScreen() {
         {placementError ? <Text style={styles.errorText}>{placementError}</Text> : null}
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Work Date *</Text>
-          <TextInput
-            editable={!isSubmitting}
-            placeholder="YYYY-MM-DD"
-            style={styles.input}
-            value={workDateInput}
-            onChangeText={(value) => {
-              setWorkDateInput(value);
-              setFormErrors((current) => ({ ...current, work_date: undefined }));
+          <View style={styles.labelRow}>
+            <View style={styles.labelIcon}>
+              <MaterialCommunityIcons name="calendar-check-outline" size={14} color="#1D4ED8" />
+            </View>
+            <Text style={styles.label}>Work Date</Text>
+            <Text style={styles.requiredTag}>Required</Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              if (!isSubmitting) {
+                setShowWorkDatePicker(true);
+              }
             }}
-          />
+            style={({ pressed }) => [
+              styles.input,
+              styles.dateInput,
+              pressed && styles.inputPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Select work date"
+          >
+            <Text style={styles.dateValue}>
+              {workDateInput ? formatDate(workDateInput, workDateInput) : 'Select date'}
+            </Text>
+            <MaterialCommunityIcons name="calendar-month-outline" size={16} color={styles.dateIcon.color as string} />
+          </Pressable>
+          {showWorkDatePicker ? (
+            <View style={styles.datePickerWrap}>
+              <DateTimePicker
+                value={parseIsoDate(workDateInput)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  if (Platform.OS === 'android') {
+                    setShowWorkDatePicker(false);
+                  }
+                  if (event.type === 'set' && selectedDate) {
+                    setWorkDateInput(formatIsoDate(selectedDate));
+                    setFormErrors((current) => ({ ...current, work_date: undefined }));
+                  }
+                  if (event.type === 'dismissed') {
+                    setShowWorkDatePicker(false);
+                  }
+                }}
+              />
+              {Platform.OS === 'ios' ? (
+                <Pressable
+                  onPress={() => setShowWorkDatePicker(false)}
+                  style={styles.pickerDone}
+                >
+                  <Text style={styles.pickerDoneText}>Done</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+          <Text style={styles.helperText}>Use ISO format so your report is easy to track.</Text>
           {formErrors.work_date ? <Text style={styles.fieldError}>{formErrors.work_date}</Text> : null}
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Accomplishments *</Text>
+          <View style={styles.labelRow}>
+            <View style={styles.labelIcon}>
+              <MaterialCommunityIcons name="notebook-edit-outline" size={14} color="#0F766E" />
+            </View>
+            <Text style={styles.label}>Accomplishments</Text>
+            <Text style={styles.requiredTag}>Required</Text>
+          </View>
           <TextInput
             editable={!isSubmitting}
             multiline
@@ -197,41 +276,59 @@ export default function DailyReportsScreen() {
             placeholder="Describe what you completed today."
             style={[styles.input, styles.textArea]}
             textAlignVertical="top"
+            placeholderTextColor={appTheme.colors.subtleText}
+            autoCapitalize="sentences"
             value={accomplishmentsInput}
             onChangeText={(value) => {
               setAccomplishmentsInput(value);
               setFormErrors((current) => ({ ...current, accomplishments: undefined }));
             }}
           />
+          <Text style={styles.helperText}>Be specific about tasks, tools, or outputs.</Text>
           {formErrors.accomplishments ? <Text style={styles.fieldError}>{formErrors.accomplishments}</Text> : null}
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Hours Rendered *</Text>
+          <View style={styles.labelRow}>
+            <View style={styles.labelIcon}>
+              <MaterialCommunityIcons name="timer-outline" size={14} color="#B45309" />
+            </View>
+            <Text style={styles.label}>Hours Rendered</Text>
+            <Text style={styles.requiredTag}>Required</Text>
+          </View>
           <TextInput
             editable={!isSubmitting}
             keyboardType="decimal-pad"
             placeholder="e.g. 8"
             style={styles.input}
+            placeholderTextColor={appTheme.colors.subtleText}
             value={hoursRenderedInput}
             onChangeText={(value) => {
               setHoursRenderedInput(value);
               setFormErrors((current) => ({ ...current, hours_rendered: undefined }));
             }}
           />
+          <Text style={styles.helperText}>You can use decimals (example: 7.5).</Text>
           {formErrors.hours_rendered ? <Text style={styles.fieldError}>{formErrors.hours_rendered}</Text> : null}
         </View>
 
-        {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-        {submitSuccess ? <Text style={styles.successText}>{submitSuccess}</Text> : null}
 
-        <Button
-          title={isSubmitting ? 'Submitting report...' : 'Submit daily report'}
+        <Pressable
           onPress={() => {
             void handleSubmit();
           }}
           disabled={isSubmitting || isPlacementLoading || !placement}
-        />
+          style={({ pressed }) => [
+            styles.submitButton,
+            (isSubmitting || isPlacementLoading || !placement) && styles.submitButtonDisabled,
+            pressed && !isSubmitting ? styles.submitButtonPressed : null,
+          ]}
+        >
+          <MaterialCommunityIcons name="send" size={16} color="#FFFFFF" />
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? 'Submitting report...' : 'Submit daily report'}
+          </Text>
+        </Pressable>
       </DataCard>
 
       {isLoading && reports.length === 0 ? (
@@ -318,84 +415,172 @@ export default function DailyReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  placeholderText: {
-    fontSize: 14,
-    color: appTheme.colors.mutedText,
-    lineHeight: 20,
-  },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-  },
-  fieldGroup: {
-    gap: appTheme.spacing.xs,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: appTheme.colors.text,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.sm,
-    backgroundColor: appTheme.colors.surface,
-    color: appTheme.colors.text,
-  },
-  textArea: {
-    minHeight: 110,
-  },
-  fieldError: {
-    color: '#B91C1C',
-    fontSize: 12,
-  },
-  errorText: {
-    color: '#B91C1C',
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  successText: {
-    color: '#065F46',
-    backgroundColor: '#D1FAE5',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: appTheme.colors.text,
-  },
-  expandHint: {
-    color: appTheme.colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  details: {
-    marginTop: appTheme.spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: appTheme.spacing.sm,
-    gap: appTheme.spacing.xs,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: appTheme.colors.mutedText,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: appTheme.colors.text,
-    lineHeight: 20,
-  },
-});
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
+  StyleSheet.create({
+    placeholderText: {
+      fontSize: s(14),
+      color: colors.mutedText,
+      lineHeight: s(20),
+    },
+    helperText: {
+      fontSize: s(12),
+      color: colors.subtleText,
+    },
+    inlineLoading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    fieldGroup: {
+      gap: s(appTheme.spacing.xs),
+    },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.xs),
+    },
+    labelIcon: {
+      width: s(22),
+      height: s(22),
+      borderRadius: s(8),
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primaryRing,
+    },
+    label: {
+      fontSize: s(14),
+      fontWeight: '600',
+      color: colors.text,
+    },
+    requiredTag: {
+      fontSize: s(10),
+      fontWeight: '700',
+      color: colors.warningText,
+      backgroundColor: colors.warningLight,
+      paddingHorizontal: s(6),
+      paddingVertical: 2,
+      borderRadius: 999,
+      overflow: 'hidden',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      borderRadius: s(10),
+      paddingHorizontal: s(appTheme.spacing.md),
+      paddingVertical: s(appTheme.spacing.sm),
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: s(14),
+    },
+    dateInput: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    dateValue: {
+      fontSize: s(14),
+      color: colors.text,
+    },
+    dateIcon: {
+      color: colors.mutedText,
+    },
+    inputPressed: {
+      borderColor: appTheme.colors.primary,
+    },
+    datePickerWrap: {
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      borderRadius: s(12),
+      padding: s(appTheme.spacing.xs),
+      backgroundColor: colors.surface,
+    },
+    pickerDone: {
+      alignSelf: 'flex-end',
+      marginTop: s(appTheme.spacing.xs),
+      paddingHorizontal: s(appTheme.spacing.sm),
+      paddingVertical: s(appTheme.spacing.xs),
+      borderRadius: s(10),
+      backgroundColor: '#1D4ED8',
+    },
+    pickerDoneText: {
+      color: '#FFFFFF',
+      fontSize: s(12),
+      fontWeight: '600',
+    },
+    textArea: {
+      minHeight: s(120),
+    },
+    fieldError: {
+      color: '#B91C1C',
+      fontSize: s(12),
+    },
+    errorText: {
+      color: colors.errorText,
+      backgroundColor: colors.errorLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    successText: {
+      color: colors.successText,
+      backgroundColor: colors.successLight,
+      borderRadius: s(10),
+      padding: s(appTheme.spacing.sm),
+      fontSize: s(12),
+    },
+    submitButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(appTheme.spacing.xs),
+      borderRadius: s(12),
+      paddingVertical: s(appTheme.spacing.sm),
+      backgroundColor: colors.primary,
+    },
+    submitButtonPressed: {
+      opacity: 0.9,
+    },
+    submitButtonDisabled: {
+      opacity: 0.5,
+    },
+    submitButtonText: {
+      fontSize: s(14),
+      fontWeight: '600',
+      color: colors.surface,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: s(appTheme.spacing.sm),
+    },
+    cardTitle: {
+      fontSize: s(16),
+      fontWeight: '700',
+      color: colors.text,
+    },
+    expandHint: {
+      color: colors.primary,
+      fontSize: s(12),
+      fontWeight: '600',
+    },
+    details: {
+      marginTop: s(appTheme.spacing.xs),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: s(appTheme.spacing.sm),
+      gap: s(appTheme.spacing.xs),
+    },
+    detailLabel: {
+      fontSize: s(13),
+      color: colors.mutedText,
+      fontWeight: '600',
+    },
+    detailValue: {
+      fontSize: s(13),
+      color: colors.text,
+      lineHeight: s(20),
+    },
+  });

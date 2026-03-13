@@ -4,31 +4,34 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
+import ToastProvider from './src/components/ToastProvider';
 import { AuthSessionProvider } from './src/stores/authSession';
 import { appTheme } from './src/theme';
+import ThemeProvider, { useTheme } from './src/theme/ThemeProvider';
 
 // ─────────────────────────────────────────────
 //  Navigation theme — maps React Navigation
 //  color roles to our design tokens.
 // ─────────────────────────────────────────────
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: appTheme.colors.primary,
-    background: appTheme.colors.background,
-    card: appTheme.colors.surface,
-    text: appTheme.colors.text,
-    border: appTheme.colors.borderLight,
-    notification: appTheme.colors.primary,
-  },
-};
-
 // ─────────────────────────────────────────────
 //  App
 // ─────────────────────────────────────────────
 function AppRoot() {
   const insets = useSafeAreaInsets();
+  const { colors, mode } = useTheme();
+
+  const navigationTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.borderLight,
+      notification: colors.primary,
+    },
+  };
 
   return (
     <GestureHandlerRootView
@@ -36,20 +39,22 @@ function AppRoot() {
         flex: 1,
         paddingTop: 0,
         paddingBottom: 0,
-        backgroundColor: appTheme.colors.background,
+        backgroundColor: colors.background,
       }}
     >
       <AuthSessionProvider>
-        <NavigationContainer theme={navigationTheme}>
-          <StatusBar
-            style="dark"
-            backgroundColor={
-              Platform.OS === 'android' ? appTheme.colors.background : undefined
-            }
-            translucent={Platform.OS !== 'android'}
-          />
-          <AppNavigator />
-        </NavigationContainer>
+        <ToastProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <StatusBar
+              style={mode === 'dark' ? 'light' : 'dark'}
+              backgroundColor={
+                Platform.OS === 'android' ? colors.background : undefined
+              }
+              translucent={Platform.OS !== 'android'}
+            />
+            <AppNavigator />
+          </NavigationContainer>
+        </ToastProvider>
       </AuthSessionProvider>
     </GestureHandlerRootView>
   );
@@ -58,7 +63,9 @@ function AppRoot() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppRoot />
+      <ThemeProvider>
+        <AppRoot />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   getStudentPlacement,
   requestStudentPlacement,
@@ -10,7 +11,9 @@ import InfoStateCard from '../components/InfoStateCard';
 import KeyValueRow from '../components/KeyValueRow';
 import StatusBadge from '../components/StatusBadge';
 import StudentScreenLayout from '../components/StudentScreenLayout';
+import { useToast } from '../components/ToastProvider';
 import { appTheme } from '../theme';
+import { useResponsive } from '../theme/responsive';
 import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDate, formatHours } from '../utils/formatters';
@@ -21,6 +24,9 @@ type PlacementRequestFormErrors = Partial<
 >;
 
 export default function PlacementScreen() {
+  const { s } = useResponsive();
+  const styles = getStyles(s);
+  const toast = useToast();
   const [placement, setPlacement] = useState<Placement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -109,6 +115,7 @@ export default function PlacementScreen() {
     try {
       await requestStudentPlacement(payload);
       setRequestSuccess('Placement request submitted successfully.');
+      toast.show({ type: 'success', title: 'Request sent', message: 'Placement request submitted.' });
       setCompanyIdInput('');
       setEndDateInput('');
       setBatchIdInput('');
@@ -122,9 +129,9 @@ export default function PlacementScreen() {
         end_date: apiValidationErrors.end_date?.[0],
         ojt_batch_id: apiValidationErrors.ojt_batch_id?.[0],
       });
-      setRequestError(
-        getApiErrorMessage(requestSubmitError, 'Unable to submit placement request right now.')
-      );
+      const message = getApiErrorMessage(requestSubmitError, 'Unable to submit placement request right now.');
+      setRequestError(message);
+      toast.show({ type: 'error', title: 'Request failed', message });
     } finally {
       setIsSubmittingRequest(false);
     }
@@ -134,6 +141,7 @@ export default function PlacementScreen() {
     <StudentScreenLayout
       title="Placement"
       subtitle="Your assigned company, adviser, and placement status."
+      headerIconName="briefcase-outline"
       refreshing={isRefreshing}
       onRefresh={() => {
         void loadPlacement('refresh');
@@ -141,8 +149,10 @@ export default function PlacementScreen() {
     >
       {isLoading && !placement ? (
         <DataCard>
-          <ActivityIndicator size="large" color={appTheme.colors.primary} />
-          <Text style={styles.helperText}>Loading placement information...</Text>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="large" color={appTheme.colors.primary} />
+            <Text style={styles.helperText}>Loading placement information...</Text>
+          </View>
         </DataCard>
       ) : null}
 
@@ -163,8 +173,16 @@ export default function PlacementScreen() {
           <DataCard
             title={placement.company?.name ?? 'Placement assigned'}
             subtitle={`Batch: ${placement.batch?.name ?? 'Not set'}`}
+            icon={<MaterialCommunityIcons name="briefcase-outline" size={16} color="#1D4ED8" />}
           >
-            <StatusBadge status={placement.status} />
+            <View style={styles.statusRow}>
+              <StatusBadge status={placement.status} />
+              <Text style={styles.statusNote}>
+                {placement.status === 'active'
+                  ? 'Keep logging hours consistently.'
+                  : 'Awaiting coordinator confirmation.'}
+              </Text>
+            </View>
             <KeyValueRow label="Start Date" value={formatDate(placement.start_date)} />
             <KeyValueRow label="End Date" value={formatDate(placement.end_date)} />
             <KeyValueRow
@@ -179,7 +197,10 @@ export default function PlacementScreen() {
             <KeyValueRow label="Adviser" value={placement.adviser?.name ?? 'Not assigned'} />
           </DataCard>
 
-          <DataCard title="Company Contact">
+          <DataCard
+            title="Company Contact"
+            icon={<MaterialCommunityIcons name="office-building" size={16} color="#7C3AED" />}
+          >
             <KeyValueRow label="Contact Person" value={placement.company?.contact_person ?? 'N/A'} />
             <KeyValueRow label="Email" value={placement.company?.email ?? 'N/A'} />
             <KeyValueRow label="Phone" value={placement.company?.phone ?? 'N/A'} />
@@ -207,7 +228,11 @@ export default function PlacementScreen() {
             }
           />
 
-          <DataCard title="Placement request" subtitle="Submit your preferred placement details.">
+          <DataCard
+            title="Placement request"
+            subtitle="Submit your preferred placement details."
+            icon={<MaterialCommunityIcons name="clipboard-text-outline" size={16} color="#0F766E" />}
+          >
             <Text style={styles.formHint}>
               Company options are not yet available as a dropdown on mobile. Enter the numeric
               company ID provided by your coordinator.
@@ -215,7 +240,9 @@ export default function PlacementScreen() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Company ID *</Text>
-              <TextInput
+              <View style={styles.inputRow}>
+                <MaterialCommunityIcons name="identifier" size={16} color={appTheme.colors.mutedText} />
+                <TextInput
                 keyboardType="number-pad"
                 editable={!isSubmittingRequest}
                 placeholder="e.g. 12"
@@ -226,12 +253,15 @@ export default function PlacementScreen() {
                   setRequestErrors((current) => ({ ...current, company_id: undefined }));
                 }}
               />
+              </View>
               {requestErrors.company_id ? <Text style={styles.fieldError}>{requestErrors.company_id}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Start Date *</Text>
-              <TextInput
+              <View style={styles.inputRow}>
+                <MaterialCommunityIcons name="calendar-blank-outline" size={16} color={appTheme.colors.mutedText} />
+                <TextInput
                 editable={!isSubmittingRequest}
                 placeholder="YYYY-MM-DD"
                 style={styles.input}
@@ -241,12 +271,15 @@ export default function PlacementScreen() {
                   setRequestErrors((current) => ({ ...current, start_date: undefined }));
                 }}
               />
+              </View>
               {requestErrors.start_date ? <Text style={styles.fieldError}>{requestErrors.start_date}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>End Date (optional)</Text>
-              <TextInput
+              <View style={styles.inputRow}>
+                <MaterialCommunityIcons name="calendar-range-outline" size={16} color={appTheme.colors.mutedText} />
+                <TextInput
                 editable={!isSubmittingRequest}
                 placeholder="YYYY-MM-DD"
                 style={styles.input}
@@ -256,12 +289,15 @@ export default function PlacementScreen() {
                   setRequestErrors((current) => ({ ...current, end_date: undefined }));
                 }}
               />
+              </View>
               {requestErrors.end_date ? <Text style={styles.fieldError}>{requestErrors.end_date}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>OJT Batch ID (optional)</Text>
-              <TextInput
+              <View style={styles.inputRow}>
+                <MaterialCommunityIcons name="tag-outline" size={16} color={appTheme.colors.mutedText} />
+                <TextInput
                 keyboardType="number-pad"
                 editable={!isSubmittingRequest}
                 placeholder="e.g. 3"
@@ -272,19 +308,31 @@ export default function PlacementScreen() {
                   setRequestErrors((current) => ({ ...current, ojt_batch_id: undefined }));
                 }}
               />
+              </View>
               {requestErrors.ojt_batch_id ? <Text style={styles.fieldError}>{requestErrors.ojt_batch_id}</Text> : null}
             </View>
 
-            {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
-            {requestSuccess ? <Text style={styles.successText}>{requestSuccess}</Text> : null}
 
-            <Button
-              title={isSubmittingRequest ? 'Submitting request...' : 'Submit placement request'}
+            <Pressable
               onPress={() => {
                 void handleRequestSubmit();
               }}
               disabled={isSubmittingRequest}
-            />
+              style={({ pressed }) => [
+                styles.submitButton,
+                pressed && !isSubmittingRequest && styles.submitButtonPressed,
+                isSubmittingRequest && styles.submitButtonDisabled,
+              ]}
+            >
+              {isSubmittingRequest ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <MaterialCommunityIcons name="send" size={16} color="#fff" />
+              )}
+              <Text style={styles.submitLabel}>
+                {isSubmittingRequest ? 'Submitting request...' : 'Submit placement request'}
+              </Text>
+            </Pressable>
           </DataCard>
         </>
       ) : null}
@@ -292,48 +340,89 @@ export default function PlacementScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (s: (value: number) => number) =>
+  StyleSheet.create({
   helperText: {
-    fontSize: 14,
+    fontSize: s(14),
     color: appTheme.colors.mutedText,
     lineHeight: 20,
   },
+  loadingRow: {
+    alignItems: 'center',
+    gap: s(appTheme.spacing.sm),
+  },
   formHint: {
-    fontSize: 13,
+    fontSize: s(13),
     color: appTheme.colors.mutedText,
     lineHeight: 20,
   },
   fieldGroup: {
-    gap: appTheme.spacing.xs,
+    gap: s(appTheme.spacing.xs),
   },
   label: {
-    fontSize: 14,
+    fontSize: s(14),
     fontWeight: '600',
     color: appTheme.colors.text,
   },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(appTheme.spacing.sm),
     borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.sm,
-    backgroundColor: appTheme.colors.surface,
+    borderColor: '#E2E8F0',
+    borderRadius: s(12),
+    paddingHorizontal: s(appTheme.spacing.sm),
+    backgroundColor: '#F8FAFC',
+  },
+  input: {
+    flex: 1,
+    paddingVertical: s(appTheme.spacing.sm),
+    backgroundColor: 'transparent',
     color: appTheme.colors.text,
   },
   fieldError: {
     color: '#B91C1C',
-    fontSize: 12,
+    fontSize: s(12),
   },
   errorText: {
     color: '#B91C1C',
     backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
+    borderRadius: s(10),
+    padding: s(appTheme.spacing.sm),
   },
   successText: {
     color: '#065F46',
     backgroundColor: '#D1FAE5',
-    borderRadius: 8,
-    padding: appTheme.spacing.sm,
+    borderRadius: s(10),
+    padding: s(appTheme.spacing.sm),
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(appTheme.spacing.sm),
+  },
+  statusNote: {
+    fontSize: s(12),
+    color: appTheme.colors.mutedText,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(appTheme.spacing.xs),
+    borderRadius: s(12),
+    backgroundColor: '#1D4ED8',
+    paddingVertical: s(appTheme.spacing.sm),
+  },
+  submitButtonPressed: {
+    opacity: 0.88,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitLabel: {
+    fontSize: s(13),
+    fontWeight: '700',
+    color: '#fff',
   },
 });

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +8,9 @@ import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useDrawer } from './DrawerContext';
 import { useAuthSession } from '../stores/authSession';
+import ConfirmDialog from './ConfirmDialog';
+import { useToast } from './ToastProvider';
+import { useTheme } from '../theme/ThemeProvider';
 
 type NavigationProp = NativeStackNavigationProp<DrawerParamList>;
 
@@ -50,7 +54,10 @@ export default function StudentDrawerContent() {
   const { closeDrawer } = useDrawer();
   const { user, logout } = useAuthSession();
   const { s } = useResponsive();
-  const styles = getStyles(s);
+  const { colors } = useTheme();
+  const styles = getStyles(s, colors);
+  const toast = useToast();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const displayName = user?.name ?? 'Student';
   const roleLabel = user?.role ? user.role : 'Student';
   const initials = getInitials(displayName);
@@ -101,7 +108,7 @@ export default function StudentDrawerContent() {
                 <MaterialCommunityIcons
                   name={route.icon}
                   size={18}
-                  color={isActive ? '#1D4ED8' : appTheme.colors.mutedText}
+                  color={isActive ? colors.primary : colors.text}
                 />
               </View>
               <View style={styles.itemText}>
@@ -155,7 +162,7 @@ export default function StudentDrawerContent() {
                 <MaterialCommunityIcons
                   name={route.icon}
                   size={18}
-                  color={isActive ? '#1D4ED8' : appTheme.colors.mutedText}
+                  color={isActive ? colors.primary : colors.text}
                 />
               </View>
               <View style={styles.itemText}>
@@ -193,8 +200,7 @@ export default function StudentDrawerContent() {
         </View>
         <Pressable
           onPress={() => {
-            void logout();
-            closeDrawer();
+            setShowLogoutConfirm(true);
           }}
           style={({ pressed }) => [styles.logoutButton, pressed && styles.itemPressed]}
         >
@@ -202,26 +208,50 @@ export default function StudentDrawerContent() {
           <Text style={styles.logoutText}>Sign out</Text>
         </Pressable>
       </View>
+
+      <ConfirmDialog
+        visible={showLogoutConfirm}
+        title="Log out"
+        message="You will need to sign in again to access your account."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        destructive
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={async () => {
+          setShowLogoutConfirm(false);
+          try {
+            await logout();
+            toast.show({ type: 'success', title: 'Logged out', message: 'You have been signed out.' });
+            closeDrawer();
+          } catch (requestError) {
+            toast.show({
+              type: 'error',
+              title: 'Logout failed',
+              message: 'Unable to log out right now.',
+            });
+          }
+        }}
+      />
     </View>
   );
 }
 
-const getStyles = (s: (value: number) => number) =>
+const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors) =>
   StyleSheet.create({
   container: {
-    paddingHorizontal: s(appTheme.spacing.lg),
-    paddingBottom: s(appTheme.spacing.sm),
+    paddingHorizontal: s(appTheme.spacing.md),
+    paddingBottom: s(appTheme.spacing.xs),
     paddingTop: 0,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: colors.surface,
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: s(appTheme.spacing.lg),
+    paddingBottom: s(appTheme.spacing.md),
   },
   header: {
-    paddingBottom: s(appTheme.spacing.lg),
+    paddingBottom: s(appTheme.spacing.md),
     gap: s(appTheme.spacing.xs),
-    marginTop: s(appTheme.spacing.md),
+    marginTop: s(appTheme.spacing.sm),
   },
   brandRow: {
     flexDirection: 'row',
@@ -232,23 +262,23 @@ const getStyles = (s: (value: number) => number) =>
     gap: 2,
   },
   logoBadge: {
-    width: s(44),
-    height: s(44),
+    width: s(40),
+    height: s(40),
     borderRadius: s(14),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appTheme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: appTheme.colors.borderLight,
+    borderColor: colors.borderLight,
   },
   title: {
-    fontSize: s(20),
+    fontSize: s(18),
     fontWeight: '700',
-    color: appTheme.colors.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: s(12),
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
   },
   quickHints: {
     flexDirection: 'row',
@@ -264,19 +294,19 @@ const getStyles = (s: (value: number) => number) =>
   },
   hintText: {
     fontSize: s(11),
-    color: appTheme.colors.subtleText,
+    color: colors.subtleText,
   },
   section: {
     borderTopWidth: 1,
-    borderTopColor: appTheme.colors.borderLight,
-    paddingTop: s(appTheme.spacing.md),
+    borderTopColor: colors.borderLight,
+    paddingTop: s(appTheme.spacing.sm),
     gap: s(appTheme.spacing.xs),
   },
   sectionLabel: {
     fontSize: s(11),
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: appTheme.colors.subtleText,
+    color: colors.subtleText,
     marginBottom: s(appTheme.spacing.xs),
   },
   item: {
@@ -284,30 +314,30 @@ const getStyles = (s: (value: number) => number) =>
     alignItems: 'center',
     gap: s(appTheme.spacing.sm),
     paddingHorizontal: s(appTheme.spacing.md),
-    paddingVertical: s(appTheme.spacing.sm),
+    paddingVertical: s(appTheme.spacing.xs),
     borderRadius: s(12),
   },
   itemActive: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryRing,
   },
   itemPressed: {
     opacity: 0.85,
   },
   iconBadge: {
-    width: s(34),
-    height: s(34),
+    width: s(30),
+    height: s(30),
     borderRadius: s(12),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: appTheme.colors.borderLight,
+    borderColor: colors.borderLight,
   },
   iconBadgeActive: {
-    backgroundColor: '#E0E7FF',
-    borderColor: '#C7D2FE',
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primaryRing,
   },
   itemText: {
     flex: 1,
@@ -316,47 +346,48 @@ const getStyles = (s: (value: number) => number) =>
   itemLabel: {
     fontSize: s(14),
     fontWeight: '600',
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
   },
   itemLabelActive: {
-    color: '#1D4ED8',
+    color: colors.primary,
   },
   itemMeta: {
     fontSize: s(11),
-    color: appTheme.colors.subtleText,
+    color: colors.subtleText,
   },
   footer: {
-    marginTop: s(appTheme.spacing.lg),
-    gap: s(appTheme.spacing.sm),
+    marginTop: s(appTheme.spacing.md),
+    gap: s(appTheme.spacing.xs),
   },
   footerPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(appTheme.spacing.xs),
-    paddingVertical: s(appTheme.spacing.xs),
+    paddingVertical: 2,
     paddingHorizontal: s(appTheme.spacing.sm),
     borderRadius: 999,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryRing,
     alignSelf: 'center',
   },
   footerText: {
     fontSize: s(11),
     fontWeight: '600',
-    color: '#1D4ED8',
+    color: colors.primary,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(appTheme.spacing.xs),
-    paddingVertical: s(appTheme.spacing.sm),
+    paddingVertical: s(appTheme.spacing.xs),
     paddingHorizontal: s(appTheme.spacing.sm),
     borderRadius: s(12),
     borderWidth: 1,
     borderColor: '#FECACA',
     backgroundColor: '#FEF2F2',
     alignSelf: 'center',
+    marginBottom: s(appTheme.spacing.xs),
   },
   logoutText: {
     fontSize: s(12),
@@ -367,24 +398,24 @@ const getStyles = (s: (value: number) => number) =>
     flexDirection: 'row',
     gap: s(appTheme.spacing.sm),
     alignItems: 'center',
-    padding: s(appTheme.spacing.sm),
+    padding: s(appTheme.spacing.xs),
     borderRadius: s(14),
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: appTheme.colors.borderLight,
+    borderColor: colors.borderLight,
   },
   footerAvatar: {
-    width: s(42),
-    height: s(42),
+    width: s(36),
+    height: s(36),
     borderRadius: s(14),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E0E7FF',
+    backgroundColor: colors.primaryLight,
   },
   footerInitials: {
     fontSize: s(15),
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: colors.primary,
   },
   footerInfo: {
     flex: 1,
@@ -393,10 +424,10 @@ const getStyles = (s: (value: number) => number) =>
   footerName: {
     fontSize: s(13),
     fontWeight: '700',
-    color: appTheme.colors.text,
+    color: colors.text,
   },
   footerMeta: {
     fontSize: s(11),
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
   },
 });

@@ -13,8 +13,10 @@ import {
   View,
 } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
+import { useToast } from '../components/ToastProvider';
 import { appTheme } from '../theme';
 import { API_BASE_URL } from '../utils/env';
+import { useTheme } from '../theme/ThemeProvider';
 
 type LoginScreenProps = {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -32,6 +34,8 @@ export default function LoginScreen({
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const keyboardShift = useRef(new Animated.Value(0)).current;
+  const toast = useToast();
+  const { colors, mode, toggle } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,6 +86,18 @@ export default function LoginScreen({
     };
   }, [keyboardShift]);
 
+  useEffect(() => {
+    if (errorMessage) {
+      toast.show({ type: 'error', title: 'Login failed', message: errorMessage });
+    }
+  }, [errorMessage, toast]);
+
+  useEffect(() => {
+    if (bootstrapError) {
+      toast.show({ type: 'error', title: 'Session error', message: bootstrapError });
+    }
+  }, [bootstrapError, toast]);
+
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
 
@@ -105,34 +121,51 @@ export default function LoginScreen({
   const showTroubleshooting = networkErrorDetected;
   const isSubmitDisabled = isLoading || !email.trim() || !password;
 
+  const styles = getStyles(colors);
+
   return (
     <ScreenContainer scroll={false} keyboardAvoiding={false} withPadding={false}>
       <Animated.View style={[styles.content, { transform: [{ translateY: keyboardShift }] }]}>
+        <View style={styles.backgroundGlow} />
+        <View style={styles.backgroundOrb} />
+        <View style={styles.backgroundGrid} />
 
-          {/* ── Hero ── */}
-          <View style={styles.hero}>
-            <View style={styles.brandWrap}>
-              <View style={styles.brandBg}>
-                <MaterialCommunityIcons
-                  name="shield-check-outline"
-                  size={32}
-                  color={appTheme.colors.primary}
-                />
-              </View>
-              <View style={styles.brandDot} />
+        {/* ── Hero ── */}
+        <View style={styles.hero}>
+          <View style={styles.brandWrap}>
+            <View style={styles.brandBg}>
+              <MaterialCommunityIcons
+                name="shield-check-outline"
+                size={30}
+                color={colors.primary}
+              />
             </View>
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>
-              Sign in to your OJT student account{'\n'}to continue
-            </Text>
+            <View style={styles.brandDot} />
           </View>
+          <View style={styles.heroText}>
+            <Text style={styles.title}>OJT Tracker</Text>
+            <Text style={styles.subtitle}>Stay on top of hours, reports, and approvals.</Text>
+          </View>
+        </View>
 
-          {/* ── Form ── */}
-          <View style={styles.formPlain}>
-            <View style={styles.formHeader}>
-              <Text style={styles.formTitle}>Sign in</Text>
-              <Text style={styles.formSubtitle}>Use the credentials provided by your coordinator.</Text>
-            </View>
+        {/* ── Form ── */}
+        <View style={styles.formCard}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>Sign in</Text>
+            <Text style={styles.formSubtitle}>Use the credentials provided by your coordinator.</Text>
+          </View>
+          <Pressable
+            onPress={toggle}
+            style={styles.themeToggle}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle theme"
+          >
+            <MaterialCommunityIcons
+              name={mode === 'dark' ? 'weather-sunny' : 'moon-waning-crescent'}
+              size={18}
+              color={colors.text}
+            />
+          </Pressable>
 
             <View style={styles.form}>
               {/* Email */}
@@ -142,7 +175,7 @@ export default function LoginScreen({
                   <MaterialCommunityIcons
                     name="email-outline"
                     size={17}
-                    color={appTheme.colors.mutedText}
+                    color={colors.mutedText}
                   />
                   <TextInput
                     ref={emailRef}
@@ -153,8 +186,8 @@ export default function LoginScreen({
                     onChangeText={handleEmailChange}
                     onSubmitEditing={() => passwordRef.current?.focus()}
                     placeholder="student@university.edu"
-                    placeholderTextColor={appTheme.colors.subtleText}
-                    selectionColor={appTheme.colors.primary}
+                    placeholderTextColor={colors.subtleText}
+                    selectionColor={colors.primary}
                     style={styles.input}
                     value={email}
                     returnKeyType="next"
@@ -170,7 +203,7 @@ export default function LoginScreen({
                       <MaterialCommunityIcons
                         name="close-circle"
                         size={16}
-                        color={appTheme.colors.mutedText}
+                        color={colors.mutedText}
                       />
                     </Pressable>
                   )}
@@ -187,7 +220,7 @@ export default function LoginScreen({
                   <MaterialCommunityIcons
                     name="lock-outline"
                     size={17}
-                    color={appTheme.colors.mutedText}
+                    color={colors.mutedText}
                   />
                   <TextInput
                     ref={passwordRef}
@@ -197,10 +230,10 @@ export default function LoginScreen({
                       void handleLogin();
                     }}
                     placeholder="Enter your password"
-                    placeholderTextColor={appTheme.colors.subtleText}
+                    placeholderTextColor={colors.subtleText}
                     secureTextEntry={!showPassword}
                     blurOnSubmit={false}
-                    selectionColor={appTheme.colors.primary}
+                    selectionColor={colors.primary}
                     style={styles.input}
                     value={password}
                     returnKeyType="done"
@@ -215,7 +248,7 @@ export default function LoginScreen({
                     <MaterialCommunityIcons
                       name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                       size={18}
-                      color={appTheme.colors.mutedText}
+                      color={colors.mutedText}
                     />
                   </Pressable>
                 </View>
@@ -227,7 +260,7 @@ export default function LoginScreen({
                   <MaterialCommunityIcons
                     name="alert-circle-outline"
                     size={15}
-                    color={appTheme.colors.warningText}
+                    color={colors.warningText}
                   />
                   <Text style={styles.warningText}>{bootstrapError}</Text>
                 </View>
@@ -237,27 +270,27 @@ export default function LoginScreen({
                   <MaterialCommunityIcons
                     name="alert-outline"
                     size={15}
-                    color={appTheme.colors.errorText}
+                    color={colors.errorText}
                   />
                   <Text style={styles.errorText}>{visibleError}</Text>
                 </View>
               ) : null}
               {showTroubleshooting ? (
                 <View style={styles.troubleshootBox}>
-                  <MaterialCommunityIcons
-                    name="wifi-alert"
-                    size={16}
-                    color={appTheme.colors.infoText}
-                  />
-            <View style={styles.troubleshootTextWrap}>
-              <Text style={styles.troubleshootTitle}>Connection tips</Text>
-              <Text style={styles.troubleshootBody}>
-                - Use the same Wi-Fi for phone and PC.{'\n'}- Keep Laravel server running on
-                port 8001.{'\n'}- Current API: {API_BASE_URL}
-              </Text>
-            </View>
-          </View>
-        ) : null}
+                    <MaterialCommunityIcons
+                      name="wifi-alert"
+                      size={16}
+                      color={colors.infoText}
+                    />
+                  <View style={styles.troubleshootTextWrap}>
+                    <Text style={styles.troubleshootTitle}>Connection tips</Text>
+                    <Text style={styles.troubleshootBody}>
+                      - Use the same Wi-Fi for phone and PC.{'\n'}- Keep Laravel server running on
+                      port 8001.{'\n'}- Current API: {API_BASE_URL}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
 
               {/* Submit */}
               <Pressable
@@ -274,12 +307,12 @@ export default function LoginScreen({
                 accessibilityHint="Signs in to your account"
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color={appTheme.colors.surface} />
+                  <ActivityIndicator size="small" color={colors.surface} />
                 ) : (
                   <MaterialCommunityIcons
                     name="arrow-right"
                     size={18}
-                    color={appTheme.colors.surface}
+                    color={colors.surface}
                   />
                 )}
                 <Text style={styles.submitLabel}>
@@ -290,46 +323,74 @@ export default function LoginScreen({
           </View>
 
           {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>OJT Tracking System</Text>
-            <View style={styles.footerBadge}>
-              <Text style={styles.footerBadgeText}>v1.0</Text>
-            </View>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Secure student workspace</Text>
+          <View style={styles.footerBadge}>
+            <Text style={styles.footerBadgeText}>v1.0</Text>
           </View>
+        </View>
 
       </Animated.View>
     </ScreenContainer>
   );
 }
 
-const PRIMARY = appTheme.colors.primary;
-const PRIMARY_LIGHT = appTheme.colors.primaryLight;
-
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: appTheme.colors.background },
+const getStyles = (colors: typeof appTheme.colors) => StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.background },
 
   content: {
     paddingHorizontal: appTheme.layout.screenPadding,
     paddingBottom: appTheme.spacing.xl,
+    paddingTop: appTheme.spacing.lg,
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  backgroundGlow: {
+    position: 'absolute',
+    top: -120,
+    left: -120,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.35,
+  },
+  backgroundOrb: {
+    position: 'absolute',
+    top: 120,
+    right: -140,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: colors.infoLight,
+    opacity: 0.25,
+  },
+  backgroundGrid: {
+    position: 'absolute',
+    inset: 0,
+    opacity: 0.25,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
 
   /* Hero */
   hero: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 32,
+    gap: 14,
+    paddingBottom: 24,
   },
   brandWrap: {
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 0,
   },
   brandBg: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: appTheme.colors.surface,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: appTheme.colors.borderLight,
+    borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     ...appTheme.shadow.sm,
@@ -341,40 +402,61 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     borderWidth: 3,
-    borderColor: appTheme.colors.background,
+    borderColor: colors.background,
+  },
+  heroText: {
+    flex: 1,
+    gap: 4,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    color: appTheme.colors.text,
+    color: colors.text,
     letterSpacing: -0.8,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: appTheme.colors.mutedText,
-    textAlign: 'center',
-    lineHeight: 21,
+    color: colors.mutedText,
+    lineHeight: 20,
   },
 
   /* Form */
-  formPlain: {
-    paddingVertical: appTheme.spacing.md,
+  formCard: {
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    padding: appTheme.spacing.lg,
+    gap: appTheme.spacing.md,
+    ...appTheme.shadow.md,
   },
   formHeader: {
     gap: appTheme.spacing.xs,
-    marginBottom: appTheme.spacing.md - 2,
+    marginBottom: appTheme.spacing.sm,
+  },
+  themeToggle: {
+    position: 'absolute',
+    top: appTheme.spacing.sm,
+    right: appTheme.spacing.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceAlt,
   },
   formTitle: {
     fontSize: appTheme.fontSize.xl,
     fontWeight: appTheme.fontWeight.bold,
-    color: appTheme.colors.text,
+    color: colors.text,
   },
   formSubtitle: {
     fontSize: appTheme.fontSize.base,
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
     lineHeight: 20,
   },
   form: {
@@ -391,14 +473,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   passwordHint: {
     fontSize: 12,
     fontWeight: '500',
-    color: appTheme.colors.subtleText,
+    color: colors.subtleText,
   },
   inputRow: {
     flexDirection: 'row',
@@ -406,15 +488,15 @@ const styles = StyleSheet.create({
     gap: 12,
     height: appTheme.input.height,
     paddingHorizontal: appTheme.input.paddingH,
-    backgroundColor: appTheme.colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: appTheme.colors.borderLight,
+    borderColor: colors.borderLight,
     borderRadius: appTheme.input.borderRadius,
   },
   input: {
     flex: 1,
     fontSize: appTheme.input.fontSize,
-    color: appTheme.colors.text,
+    color: colors.text,
     paddingVertical: 0,
   },
 
@@ -423,39 +505,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: appTheme.colors.warningLight,
+    backgroundColor: colors.warningLight,
     borderRadius: 12,
     padding: 12,
   },
   warningText: {
     flex: 1,
     fontSize: 13,
-    color: appTheme.colors.warningText,
+    color: colors.warningText,
     lineHeight: 18,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: appTheme.colors.errorLight,
+    backgroundColor: colors.errorLight,
     borderRadius: 12,
     padding: 12,
   },
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: appTheme.colors.errorText,
+    color: colors.errorText,
     lineHeight: 18,
   },
   troubleshootBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: appTheme.spacing.sm,
-    backgroundColor: appTheme.colors.infoLight,
+    backgroundColor: colors.infoLight,
     borderRadius: appTheme.radius.md,
     padding: appTheme.spacing.sm + 2,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: colors.info,
   },
   troubleshootTextWrap: {
     flex: 1,
@@ -464,11 +546,11 @@ const styles = StyleSheet.create({
   troubleshootTitle: {
     fontSize: appTheme.fontSize.base,
     fontWeight: appTheme.fontWeight.semibold,
-    color: appTheme.colors.infoText,
+    color: colors.infoText,
   },
   troubleshootBody: {
     fontSize: appTheme.fontSize.sm,
-    color: appTheme.colors.infoText,
+    color: colors.infoText,
     lineHeight: 18,
   },
 
@@ -480,7 +562,7 @@ const styles = StyleSheet.create({
     gap: 10,
     height: 56,
     borderRadius: 16,
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     marginTop: 12,
     ...appTheme.shadow.primary,
   },
@@ -496,7 +578,7 @@ const styles = StyleSheet.create({
   submitLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.surface,
     letterSpacing: 0.2,
   },
 
@@ -510,10 +592,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
-    color: appTheme.colors.mutedText,
+    color: colors.mutedText,
   },
   footerBadge: {
-    backgroundColor: PRIMARY_LIGHT,
+    backgroundColor: colors.primaryLight,
     borderRadius: 6,
     paddingVertical: 2,
     paddingHorizontal: 8,
@@ -521,7 +603,7 @@ const styles = StyleSheet.create({
   footerBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: PRIMARY,
+    color: colors.primary,
     letterSpacing: 0.3,
   },
 });
