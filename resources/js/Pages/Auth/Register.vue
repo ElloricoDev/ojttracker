@@ -19,7 +19,7 @@ const submit = () => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 text-slate-900">
+    <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <Head title="🔐 Register">
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -31,17 +31,17 @@ const submit = () => {
 
         <div class="relative min-h-screen overflow-hidden">
             <div
-                class="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_10%_20%,#E0F2FE_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FEF3C7_0%,transparent_40%),linear-gradient(180deg,#F8FAFC_0%,#ECFEFF_100%)]"
+                class="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_10%_20%,#E0F2FE_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,#FEF3C7_0%,transparent_40%),linear-gradient(180deg,#F8FAFC_0%,#ECFEFF_100%)] dark:bg-[radial-gradient(900px_circle_at_10%_20%,rgba(14,165,233,0.18)_0%,transparent_45%),radial-gradient(900px_circle_at_85%_5%,rgba(251,191,36,0.18)_0%,transparent_40%),linear-gradient(180deg,#0B1120_0%,#0F172A_100%)]"
             ></div>
             <div
-                class="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(120deg,rgba(15,23,42,0.2)_1px,transparent_1px),linear-gradient(30deg,rgba(15,23,42,0.12)_1px,transparent_1px)] [background-size:64px_64px]"
+                class="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(120deg,rgba(15,23,42,0.2)_1px,transparent_1px),linear-gradient(30deg,rgba(15,23,42,0.12)_1px,transparent_1px)] [background-size:64px_64px] dark:opacity-[0.25] dark:[background-image:linear-gradient(120deg,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(30deg,rgba(148,163,184,0.12)_1px,transparent_1px)]"
             ></div>
 
             <div class="relative mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-12 lg:px-10">
                 <div class="grid w-full gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
                     <div class="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl backdrop-blur sm:p-8">
                         <div class="mb-6 space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-700">Create account</p>
+                            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-700 dark:text-cyan-300">Create account</p>
                             <h2 class="text-2xl font-semibold text-slate-900" style="font-family: 'Space Grotesk', sans-serif;">Get started</h2>
                             <p class="text-sm text-slate-600" style="font-family: 'Manrope', sans-serif;">
                                 Register a new OJT account and start tracking your placement.
@@ -123,7 +123,7 @@ const submit = () => {
 
                     <div class="space-y-7">
                         <div class="space-y-3">
-                            <span class="inline-flex items-center rounded-full border border-cyan-200/70 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+                            <span class="inline-flex items-center rounded-full border border-cyan-200/70 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-900/30 dark:text-cyan-200">
                                 For trainees and staff
                             </span>
                             <h1 class="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl" style="font-family: 'Space Grotesk', sans-serif;">

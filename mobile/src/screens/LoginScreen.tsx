@@ -286,7 +286,7 @@ export default function LoginScreen({
                     <Text style={styles.troubleshootTitle}>Connection tips</Text>
                     <Text style={styles.troubleshootBody}>
                       - Use the same Wi-Fi for phone and PC.{'\n'}- Keep Laravel server running on
-                      port 8001.{'\n'}- Current API: {API_BASE_URL}
+                      port 8000.{'\n'}- Current API: {API_BASE_URL}
                     </Text>
                   </View>
                 </View>

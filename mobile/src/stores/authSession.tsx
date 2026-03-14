@@ -38,7 +38,7 @@ const AuthSessionContext = createContext<AuthSessionContextValue | undefined>(un
 function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) {
-      return `Unable to reach server at ${API_BASE_URL}. Check Wi-Fi and make sure Laravel is running on port 8001.`;
+      return `Unable to reach server at ${API_BASE_URL}. Check Wi-Fi and make sure Laravel is running on port 8000.`;
     }
 
     const responseData = error.response?.data as { message?: string } | undefined;

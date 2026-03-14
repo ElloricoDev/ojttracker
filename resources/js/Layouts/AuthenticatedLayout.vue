@@ -472,7 +472,7 @@ onUnmounted(() => {
 
             <div class="relative flex h-screen">
                 <aside class="hidden w-72 flex-col border-r border-slate-200/70 bg-white/70 shadow-sm backdrop-blur dark:border-slate-700/50 dark:bg-slate-900/90 lg:fixed lg:inset-y-0 lg:flex">
-                    <div class="flex items-center gap-3 border-b border-slate-200/70 px-6 py-5 dark:border-slate-700/50">
+                    <div class="sidebar-header flex items-center gap-3 border-b border-slate-200/70 px-6 py-5 dark:border-slate-700/50">
                         <Link :href="route('dashboard')" class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white">
                                 <ApplicationLogo class="h-6 w-6 fill-current" />
@@ -484,7 +484,7 @@ onUnmounted(() => {
                         </Link>
                     </div>
 
-                    <div ref="sidebarScrollRef" class="flex-1 overflow-y-auto px-4 py-5" @scroll="handleSidebarScroll">
+                    <div ref="sidebarScrollRef" class="flex-1 overflow-y-auto px-4 py-4" @scroll="handleSidebarScroll">
                         <div class="mb-4">
                             <div class="relative">
                                 <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
@@ -670,9 +670,9 @@ onUnmounted(() => {
                                     </ResponsiveNavLink>
                                 </div>
                             </div>
-                            <div v-show="groupVisible(['Notifications', 'Reports'])" class="px-3 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                                Insights
-                            </div>
+                        <div v-show="groupVisible(['Notifications', 'Reports'])" class="px-3 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            <span class="sidebar-section-label">Insights</span>
+                        </div>
                             <ResponsiveNavLink v-show="matchesLabel('Notifications')" :href="route('notifications.index')" :active="route().current('notifications.*')">
                                 <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                                     <i class="fa-regular fa-bell text-base"></i>
@@ -686,7 +686,7 @@ onUnmounted(() => {
                                 <span>Reports</span>
                             </ResponsiveNavLink>
                         <div v-show="canManage && groupVisible(['Users', 'All Users', 'New User', 'Students', 'All Students', 'New Student', 'Companies', 'All Companies', 'New Company', 'Supervisors', 'All Supervisors', 'New Supervisor', 'Batches', 'All Batches', 'New Batch', 'Audit Logs'])" class="px-3 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Admin
+                            <span class="sidebar-section-label">Admin</span>
                         </div>
                             <div v-if="canManage && groupVisible(['Users', 'All Users', 'New User'])" class="space-y-2">
                                 <button
@@ -1033,7 +1033,7 @@ onUnmounted(() => {
             <div v-if="showingNavigationDropdown" class="fixed inset-0 z-40 lg:hidden">
                 <div class="absolute inset-0 bg-slate-900/40" @click="showingNavigationDropdown = false"></div>
                 <div class="relative mobile-nav h-full w-72 bg-white/95 shadow-2xl dark:bg-slate-900">
-                    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700">
+                    <div class="sidebar-header flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700">
                         <Link :href="route('dashboard')" class="flex items-center gap-2" @click="showingNavigationDropdown = false">
                             <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
                                 <ApplicationLogo class="h-5 w-5 fill-current" />
@@ -1045,7 +1045,7 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <div class="px-4 py-4">
+                    <div class="px-4 py-3">
                         <div class="mb-4">
                             <div class="relative">
                                 <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
@@ -1226,7 +1226,7 @@ onUnmounted(() => {
                             </div>
                         </div>
                         <div v-show="groupVisible(['Notifications', 'Reports'])" class="px-3 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Insights
+                            <span class="sidebar-section-label">Insights</span>
                         </div>
                         <ResponsiveNavLink v-show="matchesLabel('Notifications')" :href="route('notifications.index')" :active="route().current('notifications.*')" @click="showingNavigationDropdown = false">
                             <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
@@ -1241,7 +1241,7 @@ onUnmounted(() => {
                             <span>Reports</span>
                         </ResponsiveNavLink>
                         <div v-show="canManage && groupVisible(['Users', 'All Users', 'New User', 'Students', 'All Students', 'New Student', 'Companies', 'All Companies', 'New Company', 'Supervisors', 'All Supervisors', 'New Supervisor', 'Batches', 'All Batches', 'New Batch', 'Audit Logs'])" class="px-3 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Admin
+                            <span class="sidebar-section-label">Admin</span>
                         </div>
                         <div v-if="canManage && groupVisible(['Users', 'All Users', 'New User'])" class="space-y-2">
                             <button
@@ -1395,7 +1395,7 @@ onUnmounted(() => {
                             <span>Audit Logs</span>
                         </ResponsiveNavLink>
                     </div>
-                    <div class="border-t border-slate-200 px-4 py-4 text-xs text-slate-500">
+                    <div class="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <div class="font-semibold text-slate-700">OJT Tracker</div>
