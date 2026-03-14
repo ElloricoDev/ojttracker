@@ -343,6 +343,7 @@ const getStyles = (colors: typeof appTheme.colors) => StyleSheet.create({
     paddingBottom: appTheme.spacing.xl,
     paddingTop: appTheme.spacing.lg,
     flex: 1,
+    justifyContent: 'center',
     backgroundColor: colors.background,
   },
   backgroundGlow: {
