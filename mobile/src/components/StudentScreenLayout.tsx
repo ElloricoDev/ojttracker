@@ -1,7 +1,7 @@
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useDrawer } from './DrawerContext';
@@ -9,9 +9,10 @@ import ScreenContainer from './ScreenContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DrawerParamList, StudentRouteIconName } from '../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { getStudentPlacement, submitStudentAttendanceTimeIn, submitStudentAttendanceTimeOut } from '../api/student';
+import { submitStudentAttendanceTimeIn, submitStudentAttendanceTimeOut } from '../api/student';
 import { useToast } from './ToastProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { usePlacementSession } from '../stores/placementSession';
 
 type StudentScreenLayoutProps = PropsWithChildren<{
   title: string;
@@ -21,6 +22,7 @@ type StudentScreenLayoutProps = PropsWithChildren<{
   onRefresh: () => void;
   withBottomInset?: boolean;
   showQuickActions?: boolean;
+  showPlacementBanner?: boolean;
 }>;
 
 export default function StudentScreenLayout({
@@ -31,6 +33,7 @@ export default function StudentScreenLayout({
   onRefresh,
   withBottomInset = true,
   showQuickActions = true,
+  showPlacementBanner = true,
   children,
 }: StudentScreenLayoutProps) {
   const { openDrawer } = useDrawer();
@@ -38,47 +41,38 @@ export default function StudentScreenLayout({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<DrawerParamList>>();
   const { colors, mode, toggle } = useTheme();
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const toast = useToast();
-  const [placementId, setPlacementId] = useState<number | null>(null);
-  const [isLoadingPlacement, setIsLoadingPlacement] = useState(false);
   const [activeQuickAction, setActiveQuickAction] = useState<'time_in' | 'time_out' | null>(null);
   const [isQuickOpen, setIsQuickOpen] = useState(false);
   const quickAnim = useState(() => new Animated.Value(0))[0];
   const spinAnim = useState(() => new Animated.Value(0))[0];
   const styles = getStyles(s, colors);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadPlacement = async () => {
-      setIsLoadingPlacement(true);
-      try {
-        const placement = await getStudentPlacement();
-        if (isMounted) {
-          setPlacementId(placement?.id ?? null);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setPlacementId(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingPlacement(false);
-        }
-      }
-    };
+  const placementId = placement?.id ?? null;
+  const placementActive = placement?.status === 'active';
+  const placementStatusLabel = placement
+    ? placementActive
+      ? 'Active placement'
+      : 'Placement not active'
+    : 'No placement assigned';
+  const placementStatusMessage = placement
+    ? placement.company?.name ?? 'Company not assigned'
+    : 'Request a placement to enable attendance and reports.';
 
-    if (showQuickActions) {
-      void loadPlacement();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [showQuickActions]);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshPlacement();
+    }, [refreshPlacement])
+  );
 
   const handleQuickTime = useCallback(
     async (action: 'time_in' | 'time_out') => {
-      if (!placementId) {
+      if (!placementId || !placementActive) {
         toast.show({
           type: 'error',
           title: 'No placement',
@@ -171,6 +165,7 @@ export default function StudentScreenLayout({
           { paddingBottom: withBottomInset ? insets.bottom : 0 },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -179,6 +174,26 @@ export default function StudentScreenLayout({
           />
         }
       >
+        {showPlacementBanner ? (
+          <View
+            style={[
+              styles.placementBanner,
+              placementActive ? styles.placementBannerActive : styles.placementBannerInactive,
+            ]}
+          >
+            <View style={styles.placementIcon}>
+              <MaterialCommunityIcons
+                name={placementActive ? 'check-circle-outline' : 'alert-circle-outline'}
+                size={16}
+                color={placementActive ? colors.success : colors.warningText}
+              />
+            </View>
+            <View style={styles.placementTextWrap}>
+              <Text style={styles.placementTitle}>{placementStatusLabel}</Text>
+              <Text style={styles.placementSubtitle}>{placementStatusMessage}</Text>
+            </View>
+          </View>
+        ) : null}
         {children}
       </ScrollView>
 
@@ -211,12 +226,12 @@ export default function StudentScreenLayout({
               onPress={() => {
                 void handleQuickTime('time_in');
               }}
-                disabled={isLoadingPlacement || activeQuickAction !== null}
+                disabled={isPlacementLoading || activeQuickAction !== null}
                 style={({ pressed }) => [
                   styles.quickAction,
                   styles.quickActionPrimary,
                   pressed && styles.quickActionPressed,
-                  (isLoadingPlacement || activeQuickAction !== null) && styles.quickActionDisabled,
+                  (isPlacementLoading || activeQuickAction !== null) && styles.quickActionDisabled,
                 ]}
             >
               <View style={styles.quickActionIcon}>
@@ -230,12 +245,12 @@ export default function StudentScreenLayout({
                 onPress={() => {
                   void handleQuickTime('time_out');
                 }}
-                disabled={isLoadingPlacement || activeQuickAction !== null}
+                disabled={isPlacementLoading || activeQuickAction !== null}
                 style={({ pressed }) => [
                   styles.quickAction,
                   styles.quickActionSecondary,
                   pressed && styles.quickActionPressed,
-                  (isLoadingPlacement || activeQuickAction !== null) && styles.quickActionDisabled,
+                  (isPlacementLoading || activeQuickAction !== null) && styles.quickActionDisabled,
                 ]}
               >
                 <View style={[styles.quickActionIcon, styles.quickActionIconDark]}>
@@ -342,6 +357,46 @@ const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors)
     paddingTop: 0,
     paddingHorizontal: 8,
     marginBottom: 0,
+  },
+  placementBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(appTheme.spacing.sm),
+    paddingVertical: s(appTheme.spacing.sm),
+    paddingHorizontal: s(appTheme.spacing.md),
+    borderRadius: s(14),
+    borderWidth: 1,
+  },
+  placementBannerActive: {
+    backgroundColor: colors.successLight,
+    borderColor: colors.success,
+  },
+  placementBannerInactive: {
+    backgroundColor: colors.warningLight,
+    borderColor: colors.warning,
+  },
+  placementIcon: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(12),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  placementTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  placementTitle: {
+    fontSize: s(13),
+    fontWeight: '700',
+    color: colors.text,
+  },
+  placementSubtitle: {
+    fontSize: s(12),
+    color: colors.mutedText,
   },
   quickActionsHost: {
     position: 'absolute',

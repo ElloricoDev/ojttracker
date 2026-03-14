@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
-  getStudentPlacement,
   getStudentWeeklyReports,
   submitStudentWeeklyReport,
 } from '../api/student';
@@ -18,10 +17,11 @@ import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useTheme } from '../theme/ThemeProvider';
-import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDate, formatDateTime, formatHours } from '../utils/formatters';
 import { getTodayIsoDate, isValidIsoDate, parsePositiveNumber } from '../utils/validation';
+import { usePlacementSession } from '../stores/placementSession';
+import { API_BASE_URL } from '../utils/env';
 
 type WeeklyReportFormErrors = Partial<
   Record<'placement_id' | 'week_start' | 'week_end' | 'accomplishments' | 'hours_rendered', string>
@@ -32,13 +32,16 @@ export default function WeeklyReportsScreen() {
   const { colors } = useTheme();
   const styles = getStyles(s, colors);
   const toast = useToast();
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    isRefreshing: isPlacementRefreshing,
+    error: placementError,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const [showWeekStartPicker, setShowWeekStartPicker] = useState(false);
   const [showWeekEndPicker, setShowWeekEndPicker] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<Placement | null>(null);
-  const [placementError, setPlacementError] = useState<string | null>(null);
-  const [isPlacementLoading, setIsPlacementLoading] = useState(true);
-  const [isPlacementRefreshing, setIsPlacementRefreshing] = useState(false);
 
   const [weekStartInput, setWeekStartInput] = useState(getTodayIsoDate());
   const [weekEndInput, setWeekEndInput] = useState(getTodayIsoDate());
@@ -65,39 +68,15 @@ export default function WeeklyReportsScreen() {
     direction: 'desc',
   });
 
-  const loadPlacement = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'refresh') {
-      setIsPlacementRefreshing(true);
-    } else {
-      setIsPlacementLoading(true);
-    }
-
-    setPlacementError(null);
-
-    try {
-      const currentPlacement = await getStudentPlacement();
-      setPlacement(currentPlacement);
-    } catch (placementLoadError) {
-      setPlacementError(getApiErrorMessage(placementLoadError, 'Unable to load current placement.'));
-    } finally {
-      setIsPlacementLoading(false);
-      setIsPlacementRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlacement('initial');
-  }, [loadPlacement]);
-
   const refreshAll = useCallback(() => {
     refresh();
-    void loadPlacement('refresh');
-  }, [loadPlacement, refresh]);
+    void refreshPlacement();
+  }, [refresh, refreshPlacement]);
 
   const reloadAll = useCallback(() => {
     reload();
-    void loadPlacement('initial');
-  }, [loadPlacement, reload]);
+    void refreshPlacement();
+  }, [refreshPlacement, reload]);
 
   const handleSubmit = useCallback(async () => {
     const nextErrors: WeeklyReportFormErrors = {};
@@ -201,6 +180,15 @@ export default function WeeklyReportsScreen() {
       refreshing={isRefreshing || isPlacementRefreshing}
       onRefresh={refreshAll}
     >
+      {__DEV__ ? (
+        <DataCard
+          title="Debug: API Target"
+          subtitle="Make sure web/admin points to the same backend."
+          icon={<MaterialCommunityIcons name="server-network-outline" size={16} color="#1D4ED8" />}
+        >
+          <Text style={styles.debugText}>Mobile API: {API_BASE_URL}</Text>
+        </DataCard>
+      ) : null}
       <DataCard
         title="Submit weekly report"
         subtitle="Summarize your week in one place."
@@ -507,6 +495,10 @@ const getStyles = (s: (value: number) => number, colors: typeof appTheme.colors)
     helperText: {
       fontSize: s(12),
       color: colors.subtleText,
+    },
+    debugText: {
+      fontSize: s(12),
+      color: colors.mutedText,
     },
     inlineLoading: {
       flexDirection: 'row',

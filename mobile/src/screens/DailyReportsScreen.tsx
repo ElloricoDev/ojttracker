@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   getStudentDailyReports,
-  getStudentPlacement,
   submitStudentDailyReport,
 } from '../api/student';
 import DataCard from '../components/DataCard';
@@ -18,10 +17,10 @@ import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useTheme } from '../theme/ThemeProvider';
-import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDate, formatDateTime, formatHours } from '../utils/formatters';
 import { getTodayIsoDate, isValidIsoDate, parsePositiveNumber } from '../utils/validation';
+import { usePlacementSession } from '../stores/placementSession';
 
 type DailyReportFormErrors = Partial<
   Record<'placement_id' | 'work_date' | 'accomplishments' | 'hours_rendered', string>
@@ -32,12 +31,15 @@ export default function DailyReportsScreen() {
   const { colors } = useTheme();
   const styles = getStyles(s, colors);
   const toast = useToast();
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    isRefreshing: isPlacementRefreshing,
+    error: placementError,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const [showWorkDatePicker, setShowWorkDatePicker] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<Placement | null>(null);
-  const [placementError, setPlacementError] = useState<string | null>(null);
-  const [isPlacementLoading, setIsPlacementLoading] = useState(true);
-  const [isPlacementRefreshing, setIsPlacementRefreshing] = useState(false);
 
   const [workDateInput, setWorkDateInput] = useState(getTodayIsoDate());
   const [accomplishmentsInput, setAccomplishmentsInput] = useState('');
@@ -63,39 +65,15 @@ export default function DailyReportsScreen() {
     direction: 'desc',
   });
 
-  const loadPlacement = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'refresh') {
-      setIsPlacementRefreshing(true);
-    } else {
-      setIsPlacementLoading(true);
-    }
-
-    setPlacementError(null);
-
-    try {
-      const currentPlacement = await getStudentPlacement();
-      setPlacement(currentPlacement);
-    } catch (placementLoadError) {
-      setPlacementError(getApiErrorMessage(placementLoadError, 'Unable to load current placement.'));
-    } finally {
-      setIsPlacementLoading(false);
-      setIsPlacementRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlacement('initial');
-  }, [loadPlacement]);
-
   const refreshAll = useCallback(() => {
     refresh();
-    void loadPlacement('refresh');
-  }, [loadPlacement, refresh]);
+    void refreshPlacement();
+  }, [refresh, refreshPlacement]);
 
   const reloadAll = useCallback(() => {
     reload();
-    void loadPlacement('initial');
-  }, [loadPlacement, reload]);
+    void refreshPlacement();
+  }, [refreshPlacement, reload]);
 
   const handleSubmit = useCallback(async () => {
     const nextErrors: DailyReportFormErrors = {};

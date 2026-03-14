@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import ToastProvider from './src/components/ToastProvider';
 import { AuthSessionProvider } from './src/stores/authSession';
-import { appTheme } from './src/theme';
+import { PlacementSessionProvider } from './src/stores/placementSession';
 import ThemeProvider, { useTheme } from './src/theme/ThemeProvider';
 
 // ─────────────────────────────────────────────
@@ -43,18 +43,20 @@ function AppRoot() {
       }}
     >
       <AuthSessionProvider>
-        <ToastProvider>
-          <NavigationContainer theme={navigationTheme}>
-            <StatusBar
-              style={mode === 'dark' ? 'light' : 'dark'}
-              backgroundColor={
-                Platform.OS === 'android' ? colors.background : undefined
-              }
-              translucent={Platform.OS !== 'android'}
-            />
-            <AppNavigator />
-          </NavigationContainer>
-        </ToastProvider>
+        <PlacementSessionProvider>
+          <ToastProvider>
+            <NavigationContainer theme={navigationTheme}>
+              <StatusBar
+                style={mode === 'dark' ? 'light' : 'dark'}
+                backgroundColor={
+                  Platform.OS === 'android' ? colors.background : undefined
+                }
+                translucent={Platform.OS !== 'android'}
+              />
+              <AppNavigator />
+            </NavigationContainer>
+          </ToastProvider>
+        </PlacementSessionProvider>
       </AuthSessionProvider>
     </GestureHandlerRootView>
   );

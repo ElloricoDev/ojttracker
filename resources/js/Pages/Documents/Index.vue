@@ -13,12 +13,17 @@ const props = defineProps({
     selectedPlacementId: Number,
     documents: Object,
     filters: Object,
+    canViewAll: Boolean,
 });
 
 const page = usePage();
 const canVerify = ['admin', 'coordinator', 'adviser', 'supervisor'].includes(page.props.auth?.user?.role);
 
-const placementId = ref(props.selectedPlacementId || '');
+const placementId = ref(
+    props.selectedPlacementId !== null && props.selectedPlacementId !== undefined
+        ? String(props.selectedPlacementId)
+        : (props.canViewAll ? '0' : '')
+);
 const search = ref(props.filters?.search || '');
 const perPage = ref(props.filters?.per_page || 10);
 const sortKey = ref(props.filters?.sort || 'submitted_at');
@@ -26,7 +31,7 @@ const direction = ref(props.filters?.direction || 'desc');
 
 const refresh = (options = {}) => {
     router.get(route('documents.index'), {
-        placement_id: placementId.value || undefined,
+        placement_id: placementId.value !== '' ? placementId.value : undefined,
         search: search.value || undefined,
         per_page: perPage.value || undefined,
         sort: sortKey.value || undefined,
@@ -145,7 +150,7 @@ const closeDelete = () => {
                     <i class="fa-regular fa-file-lines text-base text-slate-400"></i>
                     Documents
                 </h2>
-                <Link :href="route('documents.create', { placement_id: placementId || undefined })" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
+                <Link :href="route('documents.create', { placement_id: placementId && placementId !== '0' ? placementId : undefined })" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
                     <i class="fa-solid fa-plus text-xs"></i>
                     Upload Document
                 </Link>
@@ -165,7 +170,8 @@ const closeDelete = () => {
                     <div class="relative w-full max-w-[240px]">
                         <i class="fa-solid fa-briefcase pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
                         <select v-model="placementId" class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400" @change="changePlacement">
-                            <option value="">Select placement</option>
+                            <option v-if="props.canViewAll" value="0">All placements</option>
+                            <option v-else value="">Select placement</option>
                             <option v-for="placement in props.placements" :key="placement.id" :value="placement.id">
                                 {{ placement.student?.user?.name }} - {{ placement.company?.name }}
                             </option>

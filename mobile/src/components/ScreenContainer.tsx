@@ -66,7 +66,6 @@ export default function ScreenContainer({
       contentContainerStyle={[
         ...contentStyles,
         styles.scrollContent,
-        { paddingBottom: bottomInset },
       ]}
     >
       {children}
@@ -75,18 +74,18 @@ export default function ScreenContainer({
     <View style={contentStyles}>{children}</View>
   );
 
-  const wrappedContent =
-    keyboardAvoiding ? (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset}
-        style={styles.flex}
-      >
-        {innerContent}
-      </KeyboardAvoidingView>
-    ) : (
-      innerContent
-    );
+  const shouldAvoidKeyboard = keyboardAvoiding && Platform.OS === 'ios';
+  const wrappedContent = shouldAvoidKeyboard ? (
+    <KeyboardAvoidingView
+      behavior="padding"
+      keyboardVerticalOffset={keyboardVerticalOffset}
+      style={styles.flex}
+    >
+      {innerContent}
+    </KeyboardAvoidingView>
+  ) : (
+    innerContent
+  );
 
   return (
     <SafeAreaView 

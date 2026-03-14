@@ -1,0 +1,2 @@
+$ErrorActionPreference='Stop'
+php -r "$pdo = new PDO('mysql:host=127.0.0.1;port=3306;dbname=ojttracker;charset=utf8mb4','root','Ellorico@2003'); $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $stmt = $pdo->prepare('SELECT id, placement_id, week_start, week_end, status, created_at FROM weekly_reports WHERE placement_id = ? ORDER BY created_at DESC LIMIT 20'); $stmt->execute([17]); $rows = $stmt->fetchAll(PDO::FETCH_ASSOC); foreach ($rows as $row) { echo implode("\t", $row) . "\n"; }"

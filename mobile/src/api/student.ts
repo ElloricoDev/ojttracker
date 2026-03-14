@@ -183,12 +183,21 @@ export async function uploadStudentDocument(
   const formData = new FormData();
   formData.append('placement_id', String(payload.placement_id));
   formData.append('document_type', payload.document_type);
+  formData.append('document_file', {
+    uri: payload.document_file.uri,
+    name: payload.document_file.name,
+    type: payload.document_file.type ?? 'application/octet-stream',
+  } as unknown as Blob);
 
-  const fileResponse = await fetch(payload.document_file.uri);
-  const fileBlob = await fileResponse.blob();
-  formData.append('document_file', fileBlob, payload.document_file.name);
-
-  const response = await httpClient.post<ApiEnvelope<StudentDocument>>('/v1/student/documents', formData);
+  const response = await httpClient.post<ApiEnvelope<StudentDocument>>(
+    '/v1/student/documents',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
 
   return response.data.data;
 }

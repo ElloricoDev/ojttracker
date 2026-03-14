@@ -26,7 +26,9 @@ class AttendanceController extends Controller
     {
         $user = request()->user();
         $role = $user?->role?->value ?? (string) $user?->role;
+        $canViewAll = in_array($role, [UserRole::Admin->value, UserRole::Coordinator->value], true);
         $placementScope = $this->resolvePlacementScope($user);
+        $placementIdParam = request()->has('placement_id') ? (int) request()->input('placement_id') : null;
         $perPage = (int) request()->input('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
         $search = request()->string('search')->toString();
@@ -35,6 +37,14 @@ class AttendanceController extends Controller
         $allowedSorts = ['work_date', 'total_minutes', 'status', 'created_at'];
         $sortColumn = in_array($sort, $allowedSorts, true) ? $sort : 'work_date';
         $sortDirection = $direction === 'asc' ? 'asc' : 'desc';
+
+        $placementId = 0;
+        if ($placementIdParam && $placementIdParam > 0) {
+            if ($placementScope !== null && ! in_array($placementIdParam, $placementScope, true)) {
+                abort(403);
+            }
+            $placementId = $placementIdParam;
+        }
 
         $placements = Placement::query()
             ->with(['student.user', 'company'])
@@ -45,6 +55,7 @@ class AttendanceController extends Controller
         $attendanceLogs = AttendanceLog::query()
             ->with(['placement.student.user', 'approver:id,name'])
             ->when($placementScope, fn ($query) => $query->whereIn('placement_id', $placementScope))
+            ->when($placementId > 0, fn ($query) => $query->where('placement_id', $placementId))
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested->whereHas('placement.student.user', function ($studentQuery) use ($search) {
@@ -61,6 +72,8 @@ class AttendanceController extends Controller
         return Inertia::render('Attendance/Index', [
             'placements' => $placements,
             'attendanceLogs' => $attendanceLogs,
+            'selectedPlacementId' => $placementId,
+            'canViewAll' => $canViewAll,
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,
@@ -155,4 +168,3 @@ class AttendanceController extends Controller
         return [];
     }
 }
-

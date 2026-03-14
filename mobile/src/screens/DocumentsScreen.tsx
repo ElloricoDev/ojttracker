@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   getStudentDocuments,
-  getStudentPlacement,
   uploadStudentDocument,
 } from '../api/student';
 import DataCard from '../components/DataCard';
@@ -18,9 +17,9 @@ import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useTheme } from '../theme/ThemeProvider';
-import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDateTime } from '../utils/formatters';
+import { usePlacementSession } from '../stores/placementSession';
 
 type UploadFormErrors = Partial<Record<'placement_id' | 'document_type' | 'document_file', string>>;
 
@@ -69,7 +68,15 @@ function isAllowedFile(file: PickedDocumentFile): boolean {
   const isAllowedExtension = ALLOWED_FILE_EXTENSIONS.includes(extension);
   const isAllowedMimeType = file.mimeType ? ALLOWED_FILE_MIME_TYPES.includes(file.mimeType) : false;
 
-  return isAllowedExtension || isAllowedMimeType;
+  if (!isAllowedExtension) {
+    return false;
+  }
+
+  if (file.mimeType) {
+    return isAllowedMimeType;
+  }
+
+  return true;
 }
 
 function formatFileSize(sizeInBytes: number | null): string {
@@ -93,11 +100,14 @@ export default function DocumentsScreen() {
   const { s } = useResponsive();
   const { colors } = useTheme();
   const styles = getStyles(s, colors);
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    isRefreshing: isPlacementRefreshing,
+    error: placementError,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<Placement | null>(null);
-  const [placementError, setPlacementError] = useState<string | null>(null);
-  const [isPlacementLoading, setIsPlacementLoading] = useState(true);
-  const [isPlacementRefreshing, setIsPlacementRefreshing] = useState(false);
 
   const [documentTypeInput, setDocumentTypeInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<PickedDocumentFile | null>(null);
@@ -123,39 +133,15 @@ export default function DocumentsScreen() {
     direction: 'desc',
   });
 
-  const loadPlacement = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'refresh') {
-      setIsPlacementRefreshing(true);
-    } else {
-      setIsPlacementLoading(true);
-    }
-
-    setPlacementError(null);
-
-    try {
-      const currentPlacement = await getStudentPlacement();
-      setPlacement(currentPlacement);
-    } catch (placementLoadError) {
-      setPlacementError(getApiErrorMessage(placementLoadError, 'Unable to load current placement.'));
-    } finally {
-      setIsPlacementLoading(false);
-      setIsPlacementRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlacement('initial');
-  }, [loadPlacement]);
-
   const refreshAll = useCallback(() => {
     refresh();
-    void loadPlacement('refresh');
-  }, [loadPlacement, refresh]);
+    void refreshPlacement();
+  }, [refresh, refreshPlacement]);
 
   const reloadAll = useCallback(() => {
     reload();
-    void loadPlacement('initial');
-  }, [loadPlacement, reload]);
+    void refreshPlacement();
+  }, [refreshPlacement, reload]);
 
   const handlePickFile = useCallback(async () => {
     setUploadError(null);

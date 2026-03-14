@@ -5,7 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SortableTh from '@/Components/SortableTh.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { formatDate, formatDuration, formatTime } from '@/utils/formatters';
 
 const props = defineProps({
@@ -13,6 +13,8 @@ const props = defineProps({
     attendanceLogs: Object,
     filters: Object,
     canApprove: Boolean,
+    selectedPlacementId: Number,
+    canViewAll: Boolean,
 });
 
 const singlePlacement = computed(() => props.placements?.length === 1 ? props.placements[0] : null);
@@ -43,9 +45,23 @@ const search = ref(props.filters?.search || '');
 const perPage = ref(props.filters?.per_page || 10);
 const sortKey = ref(props.filters?.sort || 'work_date');
 const direction = ref(props.filters?.direction || 'desc');
+const placementId = ref(
+    props.selectedPlacementId !== null && props.selectedPlacementId !== undefined
+        ? String(props.selectedPlacementId)
+        : (props.canViewAll ? '0' : '')
+);
+
+watch(placementId, (value) => {
+    if (!value || value === '0') {
+        return;
+    }
+
+    form.placement_id = value;
+});
 
 const refresh = (options = {}) => {
     router.get(route('attendance.index'), {
+        placement_id: placementId.value !== '' ? placementId.value : undefined,
         search: search.value || undefined,
         per_page: perPage.value || undefined,
         sort: sortKey.value || undefined,
@@ -133,6 +149,18 @@ const handleSort = ({ key, direction: d }) => { sortKey.value = key; direction.v
                 @search="handleSearch"
                 @per-page="handlePerPage"
             >
+                <template #filters>
+                    <div class="relative w-full max-w-[240px]">
+                        <i class="fa-solid fa-briefcase pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+                        <select v-model="placementId" class="w-full rounded-xl border-slate-200 bg-white/90 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:border-emerald-400 focus:ring-emerald-400" @change="refresh({ page: 1 })">
+                            <option v-if="props.canViewAll" value="0">All placements</option>
+                            <option v-else value="">Select placement</option>
+                            <option v-for="placement in props.placements" :key="placement.id" :value="placement.id">
+                                {{ placement.student?.user?.name }} - {{ placement.company?.name }}
+                            </option>
+                        </select>
+                    </div>
+                </template>
                 <template #table>
                     <thead>
                         <tr class="table-head">

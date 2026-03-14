@@ -28,14 +28,20 @@ class DailyReportController extends Controller
     public function index(Request $request): Response
     {
         $placementScope = $this->resolvePlacementScope($request->user());
-        $placementId = (int) $request->integer('placement_id');
+        $role = $request->user()?->role?->value ?? (string) $request->user()?->role;
+        $canViewAll = in_array($role, [UserRole::Admin->value, UserRole::Coordinator->value], true);
+        $placementIdParam = $request->has('placement_id') ? (int) $request->input('placement_id') : null;
         $perPage = (int) $request->input('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 10;
         $search = $request->string('search')->toString();
         $sort = $request->string('sort')->toString() ?: 'work_date';
         $direction = $request->string('direction')->toString() ?: 'desc';
 
-        $placementId = $this->resolvePlacementId($request, $placementScope);
+        if ($canViewAll && ($placementIdParam === null || $placementIdParam === 0)) {
+            $placementId = 0;
+        } else {
+            $placementId = $this->resolvePlacementId($request, $placementScope);
+        }
         $placements = Placement::query()
             ->with(['student.user', 'company'])
             ->when($placementScope !== null, fn ($query) => $query->whereIn('id', $placementScope))
@@ -44,9 +50,12 @@ class DailyReportController extends Controller
         return Inertia::render('DailyReports/Index', [
             'placements' => $placements,
             'selectedPlacementId' => $placementId,
-            'dailyReports' => $placementId > 0
-                ? $this->dailyReportRepository->paginateForPlacement($placementId, $perPage, $search, $sort, $direction)
-                : ['data' => []],
+            'dailyReports' => $placementId === 0
+                ? $this->dailyReportRepository->paginateForPlacements($placementScope, $perPage, $search, $sort, $direction)
+                : ($placementId > 0
+                    ? $this->dailyReportRepository->paginateForPlacement($placementId, $perPage, $search, $sort, $direction)
+                    : ['data' => []]),
+            'canViewAll' => $canViewAll,
             'filters' => [
                 'search' => $search,
                 'per_page' => $perPage,

@@ -9,6 +9,8 @@ interface WeeklyReportRepositoryInterface
 {
     public function paginateForPlacement(int $placementId, int $perPage = 15, string $search = '', string $sort = 'week_start', string $direction = 'desc'): LengthAwarePaginator;
 
+    public function paginateForPlacements(?array $placementIds, int $perPage = 15, string $search = '', string $sort = 'week_start', string $direction = 'desc'): LengthAwarePaginator;
+
     public function create(array $attributes): WeeklyReport;
 
     public function update(WeeklyReport $weeklyReport, array $attributes): WeeklyReport;

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
-  getStudentPlacement,
   requestStudentPlacement,
   type StudentPlacementRequestPayload,
 } from '../api/student';
@@ -14,10 +13,10 @@ import StudentScreenLayout from '../components/StudentScreenLayout';
 import { useToast } from '../components/ToastProvider';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
-import type { Placement } from '../types/student';
 import { getApiErrorMessage, getApiValidationErrors } from '../utils/errors';
 import { formatDate, formatHours } from '../utils/formatters';
 import { getTodayIsoDate, isValidIsoDate, parsePositiveInteger } from '../utils/validation';
+import { usePlacementSession } from '../stores/placementSession';
 
 type PlacementRequestFormErrors = Partial<
   Record<'company_id' | 'start_date' | 'end_date' | 'ojt_batch_id', string>
@@ -27,10 +26,13 @@ export default function PlacementScreen() {
   const { s } = useResponsive();
   const styles = getStyles(s);
   const toast = useToast();
-  const [placement, setPlacement] = useState<Placement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    placement,
+    isLoading,
+    isRefreshing,
+    error,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
 
   const [companyIdInput, setCompanyIdInput] = useState('');
   const [startDateInput, setStartDateInput] = useState(getTodayIsoDate());
@@ -40,31 +42,6 @@ export default function PlacementScreen() {
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [requestErrors, setRequestErrors] = useState<PlacementRequestFormErrors>({});
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
-
-  const loadPlacement = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'refresh') {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-
-    setError(null);
-
-    try {
-      const placementData = await getStudentPlacement();
-      setPlacement(placementData);
-      setError(null);
-    } catch (requestLoadError) {
-      setError(getApiErrorMessage(requestLoadError, 'Unable to load placement details.'));
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlacement('initial');
-  }, [loadPlacement]);
 
   const handleRequestSubmit = async () => {
     const nextErrors: PlacementRequestFormErrors = {};
@@ -120,7 +97,7 @@ export default function PlacementScreen() {
       setEndDateInput('');
       setBatchIdInput('');
       setRequestErrors({});
-      await loadPlacement('initial');
+      await refreshPlacement();
     } catch (requestSubmitError) {
       const apiValidationErrors = getApiValidationErrors(requestSubmitError);
       setRequestErrors({
@@ -142,9 +119,10 @@ export default function PlacementScreen() {
       title="Placement"
       subtitle="Your assigned company, adviser, and placement status."
       headerIconName="briefcase-outline"
+      showPlacementBanner={false}
       refreshing={isRefreshing}
       onRefresh={() => {
-        void loadPlacement('refresh');
+        void refreshPlacement();
       }}
     >
       {isLoading && !placement ? (
@@ -165,7 +143,7 @@ export default function PlacementScreen() {
               message={error}
               actionLabel="Retry"
               onActionPress={() => {
-                void loadPlacement('initial');
+                void refreshPlacement();
               }}
             />
           ) : null}
@@ -222,7 +200,7 @@ export default function PlacementScreen() {
             onActionPress={
               error
                 ? () => {
-                    void loadPlacement('initial');
+                    void refreshPlacement();
                   }
                 : undefined
             }

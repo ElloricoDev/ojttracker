@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   getStudentAttendance,
-  getStudentPlacement,
   submitStudentAttendanceTimeIn,
   submitStudentAttendanceTimeOut,
 } from '../api/student';
@@ -18,9 +17,9 @@ import { usePaginatedResource } from '../hooks/usePaginatedResource';
 import { appTheme } from '../theme';
 import { useResponsive } from '../theme/responsive';
 import { useTheme } from '../theme/ThemeProvider';
-import type { Placement } from '../types/student';
 import { getApiErrorMessage } from '../utils/errors';
 import { formatDate, formatDateTime, formatMinutes } from '../utils/formatters';
+import { usePlacementSession } from '../stores/placementSession';
 
 type AttendanceAction = 'time_in' | 'time_out';
 
@@ -29,11 +28,14 @@ export default function AttendanceScreen() {
   const { colors } = useTheme();
   const styles = getStyles(s, colors);
   const toast = useToast();
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    isRefreshing: isPlacementRefreshing,
+    error: placementError,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<Placement | null>(null);
-  const [placementError, setPlacementError] = useState<string | null>(null);
-  const [isPlacementLoading, setIsPlacementLoading] = useState(true);
-  const [isPlacementRefreshing, setIsPlacementRefreshing] = useState(false);
   const [attendanceActionError, setAttendanceActionError] = useState<string | null>(null);
   const [attendanceActionSuccess, setAttendanceActionSuccess] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<AttendanceAction | null>(null);
@@ -54,43 +56,19 @@ export default function AttendanceScreen() {
     direction: 'desc',
   });
 
-  const loadPlacement = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'refresh') {
-      setIsPlacementRefreshing(true);
-    } else {
-      setIsPlacementLoading(true);
-    }
-
-    setPlacementError(null);
-
-    try {
-      const currentPlacement = await getStudentPlacement();
-      setPlacement(currentPlacement);
-    } catch (placementLoadError) {
-      setPlacementError(getApiErrorMessage(placementLoadError, 'Unable to load current placement.'));
-    } finally {
-      setIsPlacementLoading(false);
-      setIsPlacementRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlacement('initial');
-  }, [loadPlacement]);
-
   const refreshAll = useCallback(() => {
     refresh();
-    void loadPlacement('refresh');
-  }, [loadPlacement, refresh]);
+    void refreshPlacement();
+  }, [refresh, refreshPlacement]);
 
   const reloadAll = useCallback(() => {
     reload();
-    void loadPlacement('initial');
-  }, [loadPlacement, reload]);
+    void refreshPlacement();
+  }, [refreshPlacement, reload]);
 
   const handleAttendanceAction = useCallback(
     async (action: AttendanceAction) => {
-      if (!placement?.id) {
+      if (!placement?.id || placement.status !== 'active') {
         setAttendanceActionError(
           'You need an existing placement before using attendance time in/out actions.'
         );
@@ -122,7 +100,7 @@ export default function AttendanceScreen() {
         setActiveAction(null);
       }
     },
-    [placement?.id, reload]
+    [placement?.id, placement?.status, reload]
   );
 
   return (

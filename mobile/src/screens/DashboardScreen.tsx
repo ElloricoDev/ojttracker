@@ -8,7 +8,6 @@ import {
   getStudentDailyReports,
   getStudentDocuments,
   getStudentNotifications,
-  getStudentPlacement,
   getStudentUnreadNotifications,
   getStudentWeeklyReports,
 } from '../api/student';
@@ -23,20 +22,19 @@ import { useResponsive } from '../theme/responsive';
 import type {
   AttendanceLog,
   DailyReport,
-  Placement,
   StudentDocument,
   StudentNotification,
   WeeklyReport,
 } from '../types/student';
 import { getApiErrorMessage } from '../utils/errors';
 import { formatDate, formatHours, formatMinutes } from '../utils/formatters';
+import { usePlacementSession } from '../stores/placementSession';
 
 type DashboardScreenProps = {
   user: AuthUser | null;
 };
 
 type DashboardSnapshot = {
-  placement: Placement | null;
   attendanceTotal: number;
   dailyReportTotal: number;
   weeklyReportTotal: number;
@@ -53,6 +51,11 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
   const { s } = useResponsive();
   const { colors, mode } = useTheme();
   const styles = getStyles(s, colors, mode);
+  const {
+    placement,
+    isLoading: isPlacementLoading,
+    refresh: refreshPlacement,
+  } = usePlacementSession();
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -61,6 +64,7 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
   const loadDashboard = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'refresh') {
       setIsRefreshing(true);
+      void refreshPlacement();
     } else {
       setIsLoading(true);
     }
@@ -68,9 +72,8 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
     setError(null);
 
     try {
-      const [placement, attendance, dailyReports, weeklyReports, documents, notifications, unread] =
+      const [attendance, dailyReports, weeklyReports, documents, notifications, unread] =
         await Promise.all([
-          getStudentPlacement(),
           getStudentAttendance({
             page: 1,
             perPage: 1,
@@ -105,7 +108,6 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
         ]);
 
       setSnapshot({
-        placement,
         attendanceTotal: attendance.meta.total,
         dailyReportTotal: dailyReports.meta.total,
         weeklyReportTotal: weeklyReports.meta.total,
@@ -124,7 +126,7 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [refreshPlacement]);
 
   useFocusEffect(
     useCallback(() => {
@@ -137,6 +139,7 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
       title="Dashboard"
       subtitle={`Welcome back, ${user?.name ?? 'Student'}.`}
       headerIconName="view-dashboard-outline"
+      showPlacementBanner={false}
       refreshing={isRefreshing}
       withBottomInset={false}
       onRefresh={() => {
@@ -234,32 +237,34 @@ export default function DashboardScreen({ user }: DashboardScreenProps) {
             title="Placement Overview"
             icon={<MaterialCommunityIcons name="briefcase-outline" size={16} color={colors.primary} />}
           >
-            {snapshot.placement ? (
+            {isPlacementLoading && !placement ? (
+              <Text style={styles.helperText}>Loading placement...</Text>
+            ) : placement ? (
               <>
                 <View style={styles.statusRow}>
-                  <StatusBadge status={snapshot.placement.status} />
+                  <StatusBadge status={placement.status} />
                   <Text style={styles.statusNote}>
-                    {snapshot.placement.status === 'active'
+                    {placement.status === 'active'
                       ? 'Keep logging hours consistently.'
                       : 'Awaiting updates from your coordinator.'}
                   </Text>
                 </View>
                 <KeyValueRow
                   label="Company"
-                  value={snapshot.placement.company?.name ?? 'No company assigned'}
+                  value={placement.company?.name ?? 'No company assigned'}
                 />
                 <KeyValueRow
                   label="Required Hours"
                   value={
-                    typeof snapshot.placement.required_hours === 'number'
-                      ? formatHours(snapshot.placement.required_hours)
+                    typeof placement.required_hours === 'number'
+                      ? formatHours(placement.required_hours)
                       : 'N/A'
                   }
                 />
-                <KeyValueRow label="Start Date" value={formatDate(snapshot.placement.start_date)} />
-                <KeyValueRow label="End Date" value={formatDate(snapshot.placement.end_date)} />
+                <KeyValueRow label="Start Date" value={formatDate(placement.start_date)} />
+                <KeyValueRow label="End Date" value={formatDate(placement.end_date)} />
               </>
-              ) : (
+            ) : (
                 <Text style={styles.helperText}>
                   No placement assigned yet. Submit a placement request from the Placement screen.
                 </Text>

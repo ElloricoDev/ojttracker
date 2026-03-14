@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ListDirection, PaginatedQuery, PaginatedResponse, PaginationMeta } from '../types/api';
 import { getApiErrorMessage } from '../utils/errors';
 
@@ -25,6 +25,7 @@ export function usePaginatedResource<TItem>(
   const [isLoading, setIsLoading] = useState<boolean>(options.enabled ?? true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isMounted = useRef(true);
 
   const enabled = options.enabled ?? true;
 
@@ -45,16 +46,18 @@ export function usePaginatedResource<TItem>(
         return;
       }
 
-      if (mode === 'initial') {
-        setIsLoading(true);
-      } else if (mode === 'refresh') {
-        setIsRefreshing(true);
-      } else {
-        setIsLoadingMore(true);
-      }
+      if (isMounted.current) {
+        if (mode === 'initial') {
+          setIsLoading(true);
+        } else if (mode === 'refresh') {
+          setIsRefreshing(true);
+        } else {
+          setIsLoadingMore(true);
+        }
 
-      if (mode !== 'append') {
-        setError(null);
+        if (mode !== 'append') {
+          setError(null);
+        }
       }
 
       try {
@@ -63,23 +66,30 @@ export function usePaginatedResource<TItem>(
           page,
         });
 
-        setMeta(response.meta);
-        setItems((currentItems) =>
-          mode === 'append' ? [...currentItems, ...response.data] : response.data
-        );
-        setError(null);
+        if (isMounted.current) {
+          setMeta(response.meta);
+          setItems((currentItems) =>
+            mode === 'append' ? [...currentItems, ...response.data] : response.data
+          );
+          setError(null);
+        }
       } catch (requestError) {
-        setError(getApiErrorMessage(requestError, 'Unable to load data right now.'));
+        if (isMounted.current) {
+          setError(getApiErrorMessage(requestError, 'Unable to load data right now.'));
+        }
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
-        setIsLoadingMore(false);
+        if (isMounted.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [enabled, fetcher, query]
   );
 
   useEffect(() => {
+    isMounted.current = true;
     if (!enabled) {
       setItems([]);
       setMeta(null);
@@ -91,6 +101,10 @@ export function usePaginatedResource<TItem>(
     }
 
     void loadPage(1, 'initial');
+
+    return () => {
+      isMounted.current = false;
+    };
   }, [enabled, loadPage]);
 
   const refresh = useCallback(() => {

@@ -9,6 +9,8 @@ interface DailyReportRepositoryInterface
 {
     public function paginateForPlacement(int $placementId, int $perPage = 15, string $search = '', string $sort = 'work_date', string $direction = 'desc'): LengthAwarePaginator;
 
+    public function paginateForPlacements(?array $placementIds, int $perPage = 15, string $search = '', string $sort = 'work_date', string $direction = 'desc'): LengthAwarePaginator;
+
     public function create(array $attributes): DailyReport;
 
     public function update(DailyReport $dailyReport, array $attributes): DailyReport;

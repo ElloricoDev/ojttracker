@@ -9,6 +9,8 @@ interface EvaluationRepositoryInterface
 {
     public function paginateForPlacement(int $placementId, int $perPage = 15, string $search = '', string $sort = 'evaluated_at', string $direction = 'desc'): LengthAwarePaginator;
 
+    public function paginateForPlacements(?array $placementIds, int $perPage = 15, string $search = '', string $sort = 'evaluated_at', string $direction = 'desc'): LengthAwarePaginator;
+
     public function create(array $attributes): Evaluation;
 
     public function update(Evaluation $evaluation, array $attributes): Evaluation;
